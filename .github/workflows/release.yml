@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: tag
+        run: |
+          latest=$(git tag --sort=-v:refname | head -1)
+          if [ -z "$latest" ]; then
+            echo "version=v0.1.0" >> "$GITHUB_OUTPUT"
+          else
+            major=$(echo "$latest" | sed 's/v//' | cut -d. -f1)
+            minor=$(echo "$latest" | sed 's/v//' | cut -d. -f2)
+            patch=$(echo "$latest" | sed 's/v//' | cut -d. -f3)
+            patch=$((patch + 1))
+            echo "version=v${major}.${minor}.${patch}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.tag.outputs.version }}" \
+            --title "${{ steps.tag.outputs.version }}" \
+            --generate-notes
+
