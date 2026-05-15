@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: tag
+        run: |
+          latest=$(git tag --sort=-v:refname | head -1)
+          if [ -z "$latest" ]; then
+            echo "version=v0.1.0" >> "$GITHUB_OUTPUT"
+          else
+            major=$(echo "$latest" | sed 's/v//' | cut -d. -f1)
+            minor=$(echo "$latest" | sed 's/v//' | cut -d. -f2)
+            patch=$(echo "$latest" | sed 's/v//' | cut -d. -f3)
+            patch=$((patch + 1))
+            echo "version=v${major}.${minor}.${patch}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.tag.outputs.version }}" \
+            --title "${{ steps.tag.outputs.version }}" \
+            --generate-notes
+
+      - name: Update homebrew-tap formula
+        env:
+          GH_TOKEN: ${{ secrets.TAP_TOKEN }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          TARBALL_URL="https://github.com/xinyun2020/kindle-daily-viewer/archive/refs/tags/${VERSION}.tar.gz"
+          SHA256=$(curl -sL "$TARBALL_URL" | shasum -a 256 | cut -d' ' -f1)
+
+          gh repo clone xinyun2020/homebrew-tap /tmp/tap
+          cd /tmp/tap
+
+          sed -i "s|url \".*\"|url \"${TARBALL_URL}\"|" Formula/kindle-daily-viewer.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" Formula/kindle-daily-viewer.rb
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/
+          git commit -m "feat(kindle-daily-viewer): bump to ${VERSION}"
+          git push
