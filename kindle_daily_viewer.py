@@ -20,7 +20,7 @@ Config: ~/.config/kdv/config.env (KDV_* environment variables)
 Usage: kdv [--port 8080]
 Deps: Python 3.8+ stdlib only
 """
-import html, argparse, time, os, re, urllib.parse, hashlib, subprocess
+import html, argparse, time, os, re, urllib.parse, hashlib, subprocess, threading, smtplib
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import date, timedelta
 from http.cookies import SimpleCookie
@@ -37,7 +37,19 @@ CONFIG_FILE = CONFIG_DIR / "config.env"
 
 
 def _load_config_file():
-    """Load KDV_* variables from config.env (KEY=VALUE format, # comments)."""
+    """Load KDV_* variables from config.env (KEY=VALUE format, # comments).
+    Supports ${VAR} expansion from environment variables and ~/.env file."""
+    # Load ~/.env first for variable expansion
+    env_extras = {}
+    env_file = Path.home() / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                k, _, v = line.partition("=")
+                env_extras[k.strip()] = v.strip().strip('"').strip("'")
     config = {}
     if CONFIG_FILE.exists():
         for line in CONFIG_FILE.read_text().splitlines():
@@ -48,6 +60,10 @@ def _load_config_file():
                 key, _, value = line.partition("=")
                 key = key.strip()
                 value = value.strip().strip('"').strip("'")
+                # Expand ${VAR} references
+                import re as _re
+                for match in _re.findall(r'\$\{(\w+)\}', value):
+                    value = value.replace(f"${{{match}}}", env_extras.get(match, os.environ.get(match, "")))
                 if key.startswith("KDV_"):
                     config[key] = value
     return config
@@ -142,6 +158,10 @@ FEED_DIR = _cfg("KDV_FEED_DIR", os.path.join(VAULT, "feed"))
 WORKTREE_DIR = _cfg("KDV_WORKTREE_DIR", "")
 EXTRA_REPOS = [p.strip() for p in _cfg("KDV_EXTRA_REPOS", "").split(",") if p.strip()]
 GITHUB_DESKTOP = _cfg("KDV_GITHUB_DESKTOP", "").lower() in ("true", "1", "yes")
+KINDLE_EMAIL = _cfg("KDV_KINDLE_EMAIL", "")
+SMTP_USER = _cfg("KDV_SMTP_USER", "")
+SMTP_PASSWORD = _cfg("KDV_SMTP_PASSWORD", "")
+PDF_AUTHOR = _cfg("KDV_PDF_AUTHOR", "")
 
 # Auth — password login via HTML form + SHA256 cookie.
 # Cookie is not reversible from network sniffing. Fine for LAN.
@@ -158,7 +178,7 @@ LOGIN_PAGE = """<!DOCTYPE html>
 <style>
 body { margin: 40px; background: #fff; color: #000; font-family: Georgia, serif; font-size: 16px; }
 input { font-size: 16px; padding: 8px; margin: 4px 0; }
-button { font-size: 16px; padding: 8px 16px; background: #cfc; border: 1px solid #090; }
+button { font-size: 16px; padding: 8px 16px; background: #eee; border: 2px solid #333; color: #000; }
 </style>
 </head><body>
 <h2>Daily Notes</h2>
@@ -177,7 +197,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 body { margin: 0; padding: 0; background: #fff; color: #000; font-family: Georgia, serif; font-size: 15px; line-height: 1.5; overflow-x: hidden; word-wrap: break-word; overflow-wrap: break-word; }
 .nav { background: #eee; padding: 4px 8px; font-family: monospace; font-size: 0.75rem; position: sticky; top: 0; left: 0; right: 0; z-index: 99; height: 28px; }
 .nav a { margin-right: 4px; text-decoration: none; color: #06c; padding: 2px 4px; }
-.nav a.refresh { background: #cfc; font-weight: bold; border: 1px solid #090; }
+.nav a.refresh { background: #ddd; font-weight: bold; border: 1px solid #333; }
 h1 { font-size: 20px; margin: 8px 0; word-wrap: break-word; overflow-wrap: break-word; }
 h2 { font-size: 17px; margin: 8px 0 4px; border-bottom: 1px solid #ccc; word-wrap: break-word; overflow-wrap: break-word; }
 h3 { font-size: 15px; margin: 6px 0 4px; word-wrap: break-word; overflow-wrap: break-word; }
@@ -194,6 +214,9 @@ ul, ol { padding-left: 20px; }
 li { margin: 2px 0; }
 .checkbox { font-family: monospace; }
 .toggle { text-decoration: none; color: #06c; padding: 4px; }
+.annotate { text-decoration: none; color: #999; font-size: 11px; margin-left: 4px; }
+.pen-btn { display: block; width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 18px; background: transparent; border: 1px solid #999; border-radius: 4px; text-decoration: none; color: #333; }
+.line-pen { text-decoration: none; color: #666; font-size: 14px; padding: 4px 8px; margin-left: 4px; }
 .done { color: #666; text-decoration: line-through; }
 blockquote { border-left: 3px solid #ccc; margin: 8px 0; padding: 4px 12px; color: #555; }
 a { color: #06c; }
@@ -201,7 +224,7 @@ a { color: #06c; }
 </style>
 </head><body>
 <div class="nav">
-<a href="/?t={timestamp}" class="refresh">{time_str}</a>
+<a href="/?t={timestamp}" class="refresh" onclick="">{time_str}</a>
 {day_buttons}
 {period_buttons}
 {diff_button}
@@ -209,8 +232,10 @@ a { color: #06c; }
 </div>
 {content}
 <div class="page-btns">
-<a href="#pg{prev_page}" class="pg-btn">&uarr;</a>
-<a href="#pg{next_page}" class="pg-btn">&darr;</a>
+{kindle_button}
+{pen_button}
+<a href="{up_url}" class="pg-btn" onclick="">&uarr;</a>
+<a href="{down_url}" class="pg-btn" onclick="">&darr;</a>
 </div>
 </body></html>
 """
@@ -596,6 +621,42 @@ def strip_obsidian_dynamic(text):
     return result
 
 
+def _render_frontmatter(fm_text):
+    """Render YAML frontmatter as compact HTML with clickable wiki links."""
+    lines = fm_text.split("\n")
+    out = ['<div style="font-size:12px;color:#555;border-bottom:1px solid #ccc;padding:4px 8px;margin-bottom:8px;">']
+    # Only show fields that have wiki links or useful values
+    link_fields = {"parent", "child", "sibling", "previous", "next", "concept", "opposite"}
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        # Check for wiki links in this line
+        if "[[" in stripped:
+            # Extract field name and render wiki links
+            def _fm_wikilink(m):
+                note = m.group(1)
+                note_unesc = html.unescape(note)
+                display = note_unesc.split("|")[-1] if "|" in note_unesc else note_unesc
+                link_target = note_unesc.split("|")[0]
+                enc = urllib.parse.quote(link_target)
+                return f'<a href="/?action=open&amp;note={enc}" class="wikilink" onclick="">[[{html.escape(display)}]]</a>'
+            rendered = re.sub(r'\[\[([^\]]+)\]\]', _fm_wikilink, html.escape(stripped))
+            out.append(f'{rendered}<br>')
+        elif ":" in stripped:
+            key = stripped.split(":")[0].strip()
+            value = stripped.split(":", 1)[1].strip()
+            if key in link_fields and not value:
+                continue  # Skip empty link fields
+            if value and key not in ("aliases", "tags") and not stripped.startswith("- "):
+                out.append(f'<span style="color:#333;">{html.escape(key)}</span>: {html.escape(value)}<br>')
+    out.append('</div>')
+    # Don't render if nothing useful
+    if len(out) <= 2:
+        return ""
+    return "\n".join(out)
+
+
 def markdown_to_html(text, file_path=None, line_offset=0):
     """Convert markdown to HTML. No JS needed.
 
@@ -622,6 +683,7 @@ def markdown_to_html(text, file_path=None, line_offset=0):
 
     for line_idx, line in enumerate(lines, 1):
         line_num = line_idx + line_offset
+        pre_len = len(output)
         lines_since_page += 1
         if not in_code_block and lines_since_page >= PAGE_INTERVAL:
             page_counter += 1
@@ -640,13 +702,19 @@ def markdown_to_html(text, file_path=None, line_offset=0):
         if in_code_block:
             escaped = html.escape(line)
             if line.startswith("+") and not line.startswith("+++"):
-                output.append(f'<span class="diff-add">{escaped}</span>')
+                rendered = f'<span class="diff-add">{escaped}</span>'
             elif line.startswith("-") and not line.startswith("---"):
-                output.append(f'<span class="diff-del">{escaped}</span>')
+                rendered = f'<span class="diff-del">{escaped}</span>'
             elif line.startswith("@@"):
-                output.append(f'<span class="diff-hunk">{escaped}</span>')
+                rendered = f'<span class="diff-hunk">{escaped}</span>'
             else:
-                output.append(escaped)
+                rendered = escaped
+            # Add ✎ pen button for non-empty code lines
+            if file_path and line.strip():
+                enc_file = urllib.parse.quote(file_path)
+                pen_url = f"/?action=annotate&amp;file={enc_file}&amp;line={line_num}"
+                rendered = f'{rendered}<a href="{pen_url}" class="line-pen" onclick="">✎</a>'
+            output.append(rendered)
             continue
 
         if in_list and not re.match(r'^(\s*[-*+]|\s*\d+\.)\s', line) and line.strip():
@@ -674,7 +742,7 @@ def markdown_to_html(text, file_path=None, line_offset=0):
             if file_path:
                 enc_file = urllib.parse.quote(file_path)
                 toggle_url = f"/?action=toggle&amp;file={enc_file}&amp;line={line_num}&amp;anchor={anchor_id}"
-                checkbox_html = f'<a href="{toggle_url}" class="checkbox toggle">[x]</a>'
+                checkbox_html = f'<a href="{toggle_url}" class="checkbox toggle" onclick="">[x]</a>'
             else:
                 checkbox_html = '<span class="checkbox">[x]</span>'
             output.append(f'<li id="{anchor_id}" class="done">{checkbox_html} {process_inline(m.group(2))}</li>')
@@ -688,7 +756,7 @@ def markdown_to_html(text, file_path=None, line_offset=0):
             if file_path:
                 enc_file = urllib.parse.quote(file_path)
                 toggle_url = f"/?action=toggle&amp;file={enc_file}&amp;line={line_num}&amp;anchor={anchor_id}"
-                checkbox_html = f'<a href="{toggle_url}" class="checkbox toggle">[ ]</a>'
+                checkbox_html = f'<a href="{toggle_url}" class="checkbox toggle" onclick="">[ ]</a>'
             else:
                 checkbox_html = '<span class="checkbox">[ ]</span>'
             output.append(f'<li id="{anchor_id}">{checkbox_html} {process_inline(m.group(2))}</li>')
@@ -719,6 +787,22 @@ def markdown_to_html(text, file_path=None, line_offset=0):
         else:
             output.append(f"<p>{process_inline(line)}</p>")
 
+        # Add ✎ pen button inside each non-empty line element — tap to annotate
+        if file_path and line.strip() and len(output) > pre_len:
+            last_idx = len(output) - 1
+            enc_file = urllib.parse.quote(file_path)
+            pen_url = f"/?action=annotate&amp;file={enc_file}&amp;line={line_num}"
+            pen_btn = f'<a href="{pen_url}" class="line-pen" onclick="">✎</a>'
+            # Insert pen before closing tag so it stays inline
+            last_out = output[last_idx]
+            # Match closing tags like </p>, </li>, </h1>, </h2>, </h3>, </blockquote>
+            close_match = re.search(r'(</(?:p|li|h[1-3]|blockquote)>)$', last_out)
+            if close_match:
+                insert_pos = close_match.start()
+                output[last_idx] = last_out[:insert_pos] + pen_btn + last_out[insert_pos:]
+            else:
+                output[last_idx] = last_out + pen_btn
+
     if in_list:
         output.append(f"</{list_type}>")
     if in_code_block:
@@ -733,17 +817,19 @@ def process_inline(text):
     text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
     def _wikilink_replace(m):
         note = m.group(1)
-        display = note.split("|")[-1] if "|" in note else note
-        link_target = note.split("|")[0]
+        # Unescape HTML entities since html.escape() ran before this regex
+        note_unesc = html.unescape(note)
+        display = note_unesc.split("|")[-1] if "|" in note_unesc else note_unesc
+        link_target = note_unesc.split("|")[0]
         enc = urllib.parse.quote(link_target)
-        return f'<a href="/?action=open&amp;note={enc}" class="wikilink">[[{html.escape(display)}]]</a>'
+        return f'<a href="/?action=open&amp;note={enc}" class="wikilink" onclick="">[[{html.escape(display)}]]</a>'
     text = re.sub(r'\[\[([^\]]+)\]\]', _wikilink_replace, text)
     def _safe_link(m):
         label, url = m.group(1), m.group(2)
         url_raw = html.unescape(url)
         if not re.match(r'^(https?://|obsidian://|#)', url_raw):
             return f'{label}'
-        return f'<a href="{url}">{label}</a>'
+        return f'<a href="{url}" onclick="">{label}</a>'
     text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', _safe_link, text)
     text = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', text)
     text = re.sub(r'\*([^*]+)\*', r'<i>\1</i>', text)
@@ -795,6 +881,62 @@ VAULT_NAME = os.path.basename(VAULT)
 _vault_real = os.path.realpath(VAULT)
 
 
+def _send_to_kindle(filepath):
+    """Convert markdown to PDF via pandoc and email to Kindle."""
+    import tempfile, traceback
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.base import MIMEBase
+    from email import encoders
+    try:
+        return _send_to_kindle_impl(filepath)
+    except Exception:
+        with open("/tmp/kdv-kindle-error.log", "a") as f:
+            f.write(f"\n--- {time.strftime('%H:%M:%S')} ---\n")
+            traceback.print_exc(file=f)
+
+
+def _send_to_kindle_impl(filepath):
+    """Implementation of send-to-kindle."""
+    import tempfile
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.base import MIMEBase
+    from email import encoders
+    # Ensure PATH includes common tool locations (pandoc, weasyprint)
+    env = os.environ.copy()
+    extra_paths = ["/opt/homebrew/bin", str(Path.home() / ".local/bin"), "/usr/local/bin"]
+    env["PATH"] = ":".join(extra_paths) + ":" + env.get("PATH", "")
+    env["OBSIDIAN_VAULT"] = VAULT
+    if PDF_AUTHOR:
+        env["PDF_AUTHOR"] = PDF_AUTHOR
+    basename = os.path.basename(filepath).replace(".md", "")
+    with tempfile.TemporaryDirectory() as tmp:
+        pdf_path = os.path.join(tmp, f"{basename}.pdf")
+        # Use bundled obsidian-to-pdf.sh for proper formatting
+        script_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
+        pdf_script = os.path.join(script_dir, "obsidian-to-pdf.sh")
+        ret = subprocess.run(
+            [pdf_script, filepath, pdf_path],
+            capture_output=True, env=env
+        )
+        if ret.returncode != 0 or not os.path.exists(pdf_path):
+            return
+        # Email the PDF
+        msg = MIMEMultipart()
+        msg["From"] = SMTP_USER
+        msg["To"] = KINDLE_EMAIL
+        msg["Subject"] = f"{basename} — KDV"
+        with open(pdf_path, "rb") as f:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(f.read())
+        encoders.encode_base64(part)
+        part.add_header("Content-Disposition", "attachment",
+                        filename=("utf-8", "", f"{basename}.pdf"))
+        msg.attach(part)
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.send_message(msg)
+
+
 def _safe_vault_path(file_param):
     """Resolve file_param to an absolute path inside VAULT.
     Returns None if path escapes vault, targets hidden dirs, or isn't a .md file."""
@@ -822,6 +964,175 @@ class Handler(BaseHTTPRequestHandler):
             cookies = SimpleCookie()
         cookie = cookies.get("auth")
         return cookie and cookie.value == AUTH_COOKIE
+
+    def _handle_annotate_form(self, query):
+        """Show annotation form: quoted line + text input for comment."""
+        file_param = query.get("file", [None])[0]
+        try:
+            line_num = int(query.get("line", ["0"])[0])
+        except (ValueError, TypeError):
+            line_num = 0
+        if not file_param or not line_num:
+            self._redirect_back(query)
+            return
+        filepath = _safe_vault_path(file_param)
+        if not filepath or not os.path.exists(filepath):
+            self._redirect_back(query)
+            return
+        with open(filepath, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        if line_num < 1 or line_num > len(lines):
+            self._redirect_back(query)
+            return
+        quoted_line = lines[line_num - 1].strip()
+        # Strip markdown syntax for clean display
+        display_line = re.sub(r'^[-*+]\s+(\[.\]\s*)?', '', quoted_line)
+        display_line = re.sub(r'^#{1,6}\s+', '', display_line)
+        enc_file = html.escape(file_param)
+        enc_line = html.escape(quoted_line)
+        form_html = f"""<!DOCTYPE html>
+<html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif; font-size: 15px; }}
+blockquote {{ border-left: 3px solid #ccc; margin: 8px 0; padding: 4px 12px; color: #555; font-size: 13px; }}
+textarea {{ width: 100%; height: 80px; font-size: 15px; padding: 8px; margin: 8px 0; }}
+button {{ font-size: 16px; padding: 8px 16px; background: #eee; border: 2px solid #333; color: #000; margin-right: 8px; }}
+</style>
+</head><body>
+<h3>Annotate</h3>
+<blockquote>{html.escape(display_line)}</blockquote>
+<form method="POST" action="/?action=annotate_submit">
+<input type="hidden" name="file" value="{enc_file}">
+<input type="hidden" name="quoted" value="{enc_line}">
+<textarea name="comment" placeholder="Your comment (optional)"></textarea><br>
+<button type="submit">Save</button></form><form method="GET" action="/" style="display:inline;"><input type="hidden" name="file" value="{urllib.parse.quote(file_param)}"><input type="hidden" name="scrolled" value="1"><button type="submit">Cancel</button></form>
+</body></html>"""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(form_html.encode())
+
+    def _handle_annotate_submit(self, params):
+        """Append highlight + comment as single-line checkbox under # Z section at file end."""
+        file_param = params.get("file", [""])[0]
+        quoted = params.get("quoted", [""])[0]
+        comment = params.get("comment", [""])[0].strip()
+        if not file_param or not quoted:
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.end_headers()
+            return
+        filepath = _safe_vault_path(file_param)
+        if not filepath or not os.path.exists(filepath):
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.end_headers()
+            return
+        today_str = date.today().strftime("%Y-%m-%d")
+        time_str = time.strftime("%H:%M")
+        # Single-line format: - [ ] [[YYYY-MM-DD]] HH:MM "highlight" - comment
+        entry = f'- [ ] [[{today_str}]] {time_str} "{quoted}"'
+        if comment:
+            entry += f" - {comment}"
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+        lines = content.split("\n")
+        # Find existing # Z section
+        z_idx = None
+        for i, line in enumerate(lines):
+            if line.strip() == "# Z":
+                z_idx = i
+                break
+        if z_idx is not None:
+            # Append at end of file (after # Z, all entries go below)
+            # Ensure last line isn't empty string that would double-space
+            if lines and lines[-1].strip() == "":
+                lines.append(entry)
+            else:
+                lines.append(entry)
+        else:
+            # Create # Z section at end of file
+            lines.append("")
+            lines.append("# Z")
+            lines.append("")
+            lines.append(entry)
+        import tempfile
+        dir_ = os.path.dirname(filepath)
+        new_content = "\n".join(lines)
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=dir_, delete=False) as tmp:
+            tmp.write(new_content)
+            tmp_path = tmp.name
+        os.replace(tmp_path, filepath)
+        self.send_response(302)
+        self.send_header("Location", f"/?file={urllib.parse.quote(file_param)}&scrolled=1#z")
+        self.end_headers()
+
+    def _handle_kindle(self, query):
+        """Show confirmation page before sending file as PDF to Kindle."""
+        file_param = query.get("file", [None])[0]
+        if not file_param:
+            self._redirect_back(query)
+            return
+        filepath = _safe_vault_path(file_param)
+        if not filepath or not os.path.exists(filepath):
+            self._redirect_back(query)
+            return
+        display_name = os.path.basename(file_param).replace(".md", "")
+        enc_file = urllib.parse.quote(file_param)
+        back_url = f"/?file={enc_file}&scrolled=1"
+        missing_config = not KINDLE_EMAIL or not SMTP_USER or not SMTP_PASSWORD
+        if missing_config:
+            action_html = '<p style="color:#900;margin:12px 0;">Configure KDV_KINDLE_EMAIL, KDV_SMTP_USER, KDV_SMTP_PASSWORD in config.env</p>'
+            send_btn = ""
+        else:
+            action_html = ""
+            send_btn = f'<form method="GET" action="/" style="display:inline;"><input type="hidden" name="action" value="kindle_send"><input type="hidden" name="file" value="{html.escape(file_param)}"><button type="submit" class="btn">Send</button></form>'
+        cancel_btn = f'<form method="GET" action="/" style="display:inline;"><input type="hidden" name="file" value="{html.escape(file_param)}"><input type="hidden" name="scrolled" value="1"><button type="submit" class="btn">Cancel</button></form>'
+        confirm_html = f"""<!DOCTYPE html>
+<html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif; font-size: 15px; }}
+.filename {{ font-size: 18px; font-weight: bold; margin: 16px 0; padding: 12px; border: 1px solid #ccc; background: #f9f9f9; }}
+.btns {{ margin-top: 20px; }}
+.btn {{ font-size: 16px; padding: 10px 20px; margin-right: 12px; background: #eee; border: 2px solid #333; color: #000; }}
+</style>
+</head><body>
+<h3>Send to Kindle</h3>
+<div class="filename">{html.escape(display_name)}</div>
+{action_html}
+<div class="btns">
+{send_btn}
+{cancel_btn}
+</div>
+</body></html>"""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(confirm_html.encode())
+
+    def _handle_kindle_send(self, query):
+        """Actually send the file as PDF to Kindle after confirmation."""
+        file_param = query.get("file", [None])[0]
+        if not file_param:
+            self._redirect_back(query)
+            return
+        filepath = _safe_vault_path(file_param)
+        if not filepath or not os.path.exists(filepath):
+            self._redirect_back(query)
+            return
+        if not KINDLE_EMAIL or not SMTP_USER or not SMTP_PASSWORD:
+            self._redirect_back(query)
+            return
+        # Convert and send in background thread
+        threading.Thread(
+            target=_send_to_kindle, args=(filepath,), daemon=True
+        ).start()
+        # Redirect back to the file view
+        self.send_response(302)
+        self.send_header("Location", f"/?file={urllib.parse.quote(file_param)}&scrolled=1")
+        self.end_headers()
 
     def _handle_toggle(self, query):
         """Toggle a markdown checkbox on the specified line."""
@@ -864,6 +1175,8 @@ class Handler(BaseHTTPRequestHandler):
         if not note_ref:
             self._redirect_back(query)
             return
+        # Rebuild index to catch newly created files
+        _build_vault_index()
         rel_path = resolve_note(note_ref)
         if not rel_path:
             self._redirect_back(query)
@@ -874,6 +1187,8 @@ class Handler(BaseHTTPRequestHandler):
         file_for_obsidian = rel_path.replace(".md", "")
         obsidian_uri = f"obsidian://open?vault={urllib.parse.quote(VAULT_NAME)}&file={urllib.parse.quote(file_for_obsidian)}"
         subprocess.Popen(["open", obsidian_uri], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Small delay so Obsidian updates workspace.json before we read it for active file button
+        time.sleep(0.3)
         self.send_response(302)
         self.send_header("Location", f"/?file={urllib.parse.quote(rel_path)}")
         self.end_headers()
@@ -910,6 +1225,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         body = self.rfile.read(content_length).decode()
         params = urllib.parse.parse_qs(body)
+
+        # Route POST actions
+        parsed_url = urllib.parse.urlparse(self.path)
+        post_query = urllib.parse.parse_qs(parsed_url.query)
+        post_action = post_query.get("action", [None])[0]
+        if post_action == "annotate_submit" and self.check_auth():
+            self._handle_annotate_submit(params)
+            return
+
         password = params.get("pass", [""])[0]
 
         if password == AUTH_PASS:
@@ -941,6 +1265,15 @@ class Handler(BaseHTTPRequestHandler):
         elif action == "open":
             self._handle_open(query)
             return
+        elif action == "annotate":
+            self._handle_annotate_form(query)
+            return
+        elif action == "kindle":
+            self._handle_kindle(query)
+            return
+        elif action == "kindle_send":
+            self._handle_kindle_send(query)
+            return
 
         try:
             offset = int(query.get("day", ["0"])[0])
@@ -971,16 +1304,21 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 filepath, target_date = get_daily_file(offset)
                 note_date = target_date.strftime("%Y-%m-%d")
+                file_param = os.path.relpath(filepath, VAULT)
 
             if os.path.exists(filepath):
                 with open(filepath, "r", encoding="utf-8") as f:
                     raw = f.read()
                 fm_lines = 0
+                fm_html = ""
                 if raw.startswith("---"):
                     end = raw.find("---", 3)
                     if end != -1:
                         fm_section = raw[:end + 3]
                         fm_lines = fm_section.count("\n")
+                        # Render frontmatter with clickable wiki links
+                        fm_inner = raw[3:end].strip()
+                        fm_html = _render_frontmatter(fm_inner)
                         raw = raw[end + 3:]
                         stripped = raw.lstrip("\n")
                         fm_lines += len(raw) - len(stripped)
@@ -1006,6 +1344,8 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 rel_path = os.path.relpath(filepath, VAULT)
                 content, total_pages = markdown_to_html(raw, file_path=rel_path, line_offset=fm_lines)
+                if fm_html:
+                    content = fm_html + content
                 feed_path = os.path.join(FEED_DIR, f"{note_date}_daily-feed.md")
                 if os.path.exists(feed_path):
                     with open(feed_path, "r", encoding="utf-8") as ff:
@@ -1032,35 +1372,42 @@ class Handler(BaseHTTPRequestHandler):
         day_buttons_parts = []
         for name, day_offset, d in week_days:
             is_active = (not file_param and view != "diff" and day_offset == offset)
-            style = 'style="background:#cfc;font-weight:bold;"' if is_active else ""
+            style = 'style="background:#ddd;font-weight:bold;border:1px solid #333;"' if is_active else ""
             label = f"{name} {d.day}"
-            day_buttons_parts.append(f'<a href="/?day={day_offset}" {style}>{label}</a>')
+            day_buttons_parts.append(f'<a href="/?day={day_offset}" {style} onclick="">{label}</a>')
         day_buttons = " ".join(day_buttons_parts)
 
         period_files = get_period_files()
         period_parts = []
         for label, filename in period_files:
             is_active = (file_param == filename)
-            style = 'style="background:#cfc;font-weight:bold;"' if is_active else 'style="background:#eef;"'
-            period_parts.append(f'<a href="/?file={filename}" {style}>{label}</a>')
+            style = 'style="background:#ddd;font-weight:bold;border:1px solid #333;"' if is_active else 'style="background:#f5f5f5;"'
+            period_parts.append(f'<a href="/?file={filename}" {style} onclick="">{label}</a>')
         period_buttons = " ".join(period_parts)
 
         is_diff_view = (view == "diff")
-        diff_style = 'style="background:#cfc;font-weight:bold;"' if is_diff_view else 'style="background:#ffe;"'
-        diff_button = f'<a href="/?view=diff" {diff_style}>Diff</a>'
+        diff_style = 'style="background:#ddd;font-weight:bold;border:1px solid #333;"' if is_diff_view else 'style="background:#f5f5f5;"'
+        diff_button = f'<a href="/?view=diff" {diff_style} onclick="">Diff</a>'
 
         active_file = get_obsidian_active_file()
         if active_file:
             active_name = os.path.basename(active_file).replace(".md", "")
             display_name = active_name[:ACTIVE_FILE_MAX_CHARS] + "..." if len(active_name) > ACTIVE_FILE_MAX_CHARS else active_name
             is_showing_active = (file_param == active_file)
-            active_style = 'style="background:#fcf;font-weight:bold;"' if is_showing_active else 'style="background:#fef;"'
-            active_button = f'<a href="/?file={urllib.parse.quote(active_file)}" {active_style}>{html.escape(display_name)}</a>'
+            active_style = 'style="background:#ddd;font-weight:bold;border:1px solid #333;"' if is_showing_active else 'style="background:#f5f5f5;"'
+            active_button = f'<a href="/?file={urllib.parse.quote(active_file)}" {active_style} onclick="">{html.escape(display_name)}</a>'
         else:
             active_button = ""
 
         now_ts = int(time.time())
         time_str = time.strftime("%H:%M")
+
+        pen_button = ""
+        if file_param:
+            enc_file = urllib.parse.quote(file_param)
+            kindle_button = f'<form method="GET" action="/" style="display:inline;margin:0;padding:0;"><input type="hidden" name="action" value="kindle"><input type="hidden" name="file" value="{html.escape(file_param)}"><button type="submit" class="pg-btn">K</button></form>'
+        else:
+            kindle_button = ""
 
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -1076,6 +1423,19 @@ class Handler(BaseHTTPRequestHandler):
         prev_page = max(0, cur_page - 1)
         next_page = min(total_pages, cur_page + 1)
 
+        # Build page nav URLs preserving current view params
+        nav_parts = []
+        if file_param:
+            nav_parts.append(f"file={urllib.parse.quote(file_param)}")
+        elif offset != 0:
+            nav_parts.append(f"day={offset}")
+        if view:
+            nav_parts.append(f"view={view}")
+        nav_parts.append("scrolled=1")
+        nav_base = "/?" + "&".join(nav_parts)
+        up_url = f"{nav_base}&pg={prev_page}#pg{prev_page}"
+        down_url = f"{nav_base}&pg={next_page}#pg{next_page}"
+
         page = (HTML_TEMPLATE
             .replace("{timestamp}", str(now_ts))
             .replace("{time_str}", time_str)
@@ -1084,13 +1444,16 @@ class Handler(BaseHTTPRequestHandler):
             .replace("{day_buttons}", day_buttons)
             .replace("{period_buttons}", period_buttons)
             .replace("{content}", content)
-            .replace("{prev_page}", str(prev_page))
-            .replace("{next_page}", str(next_page))
+            .replace("{up_url}", up_url)
+            .replace("{down_url}", down_url)
+            .replace("{pen_button}", pen_button)
+            .replace("{kindle_button}", kindle_button)
         )
         self.wfile.write(page.encode())
 
     def log_message(self, format, *args):
-        pass
+        import sys
+        sys.stderr.write(f"[KDV] {format % args}\n")
 
 
 def main():
@@ -1099,13 +1462,14 @@ def main():
         description="Kindle Daily Viewer — serve Obsidian notes for e-ink browsers"
     )
     parser.add_argument("--port", type=int, default=PORT, help=f"Port to listen on (default: {PORT})")
+    parser.add_argument("--host", default="0.0.0.0", help="Bind address (default: 0.0.0.0 for LAN access, use 127.0.0.1 for local-only)")
     args = parser.parse_args()
 
     import socket
     class ReusableHTTPServer(HTTPServer):
         allow_reuse_address = True
         address_family = socket.AF_INET
-    server = ReusableHTTPServer(("0.0.0.0", args.port), Handler)
+    server = ReusableHTTPServer((args.host, args.port), Handler)
 
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

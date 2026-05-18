@@ -11,8 +11,11 @@ Built for Kindle's experimental browser, but works on any e-ink device (Kobo, re
 - Checkbox toggle — tap to flip `- [ ]` / `- [x]` in the actual markdown file
 - Wiki link navigation — tap opens note in viewer + activates in Obsidian
 - Obsidian active file button (reads workspace.json)
-- Page-flip buttons (pure HTML anchors, no JS)
+- Annotation — tap ✎ on any line to highlight + comment (appends to file)
+- Send to Kindle — one tap converts current file to PDF and emails to your Kindle
+- Page-flip buttons (pure HTML, no JS)
 - Password auth with SHA256 cookie
+- E-ink optimized — all buttons single-tap, grayscale styling, large touch targets
 - Strips dataview/dataviewjs blocks automatically
 
 ## Install
@@ -75,6 +78,21 @@ All settings via `~/.config/kdv/config.env` or environment variables:
 | `KDV_EXTRA_REPOS` | no | — | Comma-separated repo paths for diff view |
 | `KDV_GITHUB_DESKTOP` | no | `false` | Auto-detect GitHub Desktop repos in diff view |
 | `KDV_DIFF_TRUNCATE` | no | `50000` | Max diff bytes before truncation |
+| `KDV_KINDLE_EMAIL` | no | — | Your Kindle email (for send-to-kindle) |
+| `KDV_SMTP_USER` | no | — | Gmail address for sending |
+| `KDV_SMTP_PASSWORD` | no | — | Gmail app password (supports `${VAR}` from ~/.env) |
+| `KDV_PDF_AUTHOR` | no | — | Author name in PDF metadata |
+
+## Send to Kindle
+
+Requires `pandoc` and `weasyprint` for PDF conversion:
+
+```bash
+brew install pandoc
+pip install weasyprint
+```
+
+Configure your Kindle email and Gmail app password in `config.env`. Get an app password at https://myaccount.google.com/apppasswords.
 
 ## Security model
 
@@ -91,7 +109,7 @@ sequenceDiagram
     S->>V: read daily note from disk
     V-->>S: markdown content
     S-->>K: plain HTML (no JavaScript)
-    K->>S: POST /toggle (tap checkbox)
+    K->>S: GET /?action=toggle (tap checkbox)
     S->>V: write back - [ ] → - [x]
     V-->>S: saved
     S-->>K: redirect (updated page)
