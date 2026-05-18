@@ -53,6 +53,64 @@ def _load_config_file():
     return config
 
 
+def _detect_vault():
+    """Auto-detect Obsidian vault path. Tries (in order):
+    1. Obsidian's vault registry (obsidian.json — lists all known vaults)
+    2. Common directory scan (~/, ~/Documents/, ~/Documents/GitHub/)
+    Returns the first valid vault path found, or None.
+    """
+    import json as _json
+
+    # Strategy 1: Read Obsidian's vault registry
+    obsidian_config = Path.home() / "Library" / "Application Support" / "obsidian" / "obsidian.json"
+    if not obsidian_config.exists():
+        obsidian_config = Path.home() / ".config" / "obsidian" / "obsidian.json"
+    if obsidian_config.exists():
+        try:
+            data = _json.loads(obsidian_config.read_text())
+            vaults = data.get("vaults", {})
+            candidates = sorted(
+                ((v.get("path", ""), v.get("ts", 0)) for v in vaults.values() if v.get("path")),
+                key=lambda x: x[1], reverse=True,
+            )
+            for vault_path, _ in candidates:
+                if os.path.isdir(os.path.join(vault_path, ".obsidian")):
+                    return vault_path
+        except Exception:
+            pass
+
+    # Strategy 2: Scan common locations for .obsidian/ directories
+    home = Path.home()
+    for search_dir in [home, home / "Documents", home / "Documents" / "GitHub"]:
+        if not search_dir.is_dir():
+            continue
+        for child in sorted(search_dir.iterdir()):
+            if child.is_dir() and (child / ".obsidian").is_dir():
+                return str(child)
+
+    return None
+
+
+def _auto_create_config(vault_path):
+    """Create default config.env with detected vault path."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(
+        f"# Kindle Daily Viewer configuration (auto-generated)\n"
+        f"# Edit values below or set KDV_* environment variables.\n\n"
+        f"# Path to your Obsidian vault (auto-detected)\n"
+        f"KDV_VAULT={vault_path}\n\n"
+        f"# Daily notes directory (default: $KDV_VAULT/log)\n"
+        f"# KDV_DAILY_DIR=\n\n"
+        f"# Server port (default: 8080)\n"
+        f"# KDV_PORT=8080\n\n"
+        f"# Login password (default: password — change this!)\n"
+        f"# KDV_PASSWORD=your-password-here\n"
+    )
+    print(f"Auto-created config: {CONFIG_FILE}")
+    print(f"  Detected vault: {vault_path}")
+    print(f"  Edit {CONFIG_FILE} to customize.\n")
+
+
 _file_config = _load_config_file()
 
 
@@ -61,13 +119,20 @@ def _cfg(key, default=None):
     return os.environ.get(key) or _file_config.get(key) or default
 
 
-# Required config — KDV_VAULT must be set (no hardcoded default)
+# Required config — KDV_VAULT must be set.
+# If missing, try auto-detection and create config.env on first run.
 VAULT = _cfg("KDV_VAULT")
 if not VAULT:
-    print("Error: KDV_VAULT is not set.")
-    print(f"Create {CONFIG_FILE} with:\n  KDV_VAULT=/path/to/your/obsidian/vault")
-    print("Or set the KDV_VAULT environment variable.")
-    raise SystemExit(1)
+    detected = _detect_vault()
+    if detected:
+        _auto_create_config(detected)
+        _file_config = _load_config_file()
+        VAULT = _cfg("KDV_VAULT")
+    else:
+        print("Error: KDV_VAULT is not set and no Obsidian vault found.")
+        print(f"Create {CONFIG_FILE} with:\n  KDV_VAULT=/path/to/your/obsidian/vault")
+        print("Or set the KDV_VAULT environment variable.")
+        raise SystemExit(1)
 
 DAILY_DIR = _cfg("KDV_DAILY_DIR", os.path.join(VAULT, "log"))
 PORT = int(_cfg("KDV_PORT", "8080"))
