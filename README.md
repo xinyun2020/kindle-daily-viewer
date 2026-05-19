@@ -11,11 +11,12 @@ Built for Kindle's experimental browser, but works on any e-ink device (Kobo, re
 - Checkbox toggle — tap to flip `- [ ]` / `- [x]` in the actual markdown file
 - Wiki link navigation — tap opens note in viewer + activates in Obsidian
 - Obsidian active file button (reads workspace.json)
-- Annotation — tap ✎ on any line to highlight + comment (appends to file)
+- Annotation — tap [+] on any line to highlight + comment (appends to file)
 - Send to Kindle — one tap converts current file to PDF and emails to your Kindle
-- Page-flip buttons (pure HTML, no JS)
+- Navigation buttons — N (jump to today/next-actions), up/down (top/bottom of page)
 - Password auth with SHA256 cookie
-- E-ink optimized — all buttons single-tap, grayscale styling, large touch targets
+- E-ink optimized — pure black/white, single-tap everything, large touch targets, no JS
+- GitHub Desktop integration — auto-detects active repo (including worktrees) in diff view
 - Strips dataview/dataviewjs blocks automatically
 
 ## Install
