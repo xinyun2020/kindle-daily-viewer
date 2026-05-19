@@ -195,15 +195,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <style>
 * { box-sizing: border-box; max-width: 100vw; }
 body { margin: 0; padding: 0; background: #fff; color: #000; font-family: Georgia, serif; font-size: 15px; line-height: 1.5; overflow-x: hidden; word-wrap: break-word; overflow-wrap: break-word; }
-.nav { background: #eee; padding: 4px 8px; font-family: monospace; font-size: 0.75rem; position: sticky; top: 0; left: 0; right: 0; z-index: 99; height: 28px; }
-.nav a { margin-right: 4px; text-decoration: none; color: #06c; padding: 2px 4px; }
+.nav { background: #eee; padding: 6px 8px; font-family: monospace; font-size: 12px; border-bottom: 2px solid #000; position: fixed; top: 0; left: 0; right: 0; z-index: 99; }
+.content { padding-top: 40px; }
+.nav a { margin-right: 4px; text-decoration: none; color: #000; padding: 2px 4px; }
 .nav a.refresh { background: #ddd; font-weight: bold; border: 1px solid #333; }
+h1, h2, h3 { scroll-margin-top: 50px; }
 h1 { font-size: 20px; margin: 8px 0; word-wrap: break-word; overflow-wrap: break-word; }
 h2 { font-size: 17px; margin: 8px 0 4px; border-bottom: 1px solid #ccc; word-wrap: break-word; overflow-wrap: break-word; }
 h3 { font-size: 15px; margin: 6px 0 4px; word-wrap: break-word; overflow-wrap: break-word; }
-h4 { font-size: 14px; margin: 0; word-wrap: break-word; overflow-wrap: break-word; position: sticky; top: 28px; background: #f5f5f5; z-index: 8; padding: 2px 4px; border-left: 3px solid #06c; }
+h4 { font-size: 14px; margin: 0; word-wrap: break-word; overflow-wrap: break-word; padding: 2px 4px; border-left: 3px solid #000; }
 .diff-section { position: relative; }
-.page-btns { position: fixed; bottom: 10px; right: 10px; z-index: 100; display: flex; flex-direction: column; gap: 6px; }
+.top-right-btn { position: fixed; top: 40px; right: 10px; z-index: 100; }
+.top-right-btn .pg-btn { margin-bottom: 8px; }
+.page-btns { position: fixed; top: 50%; right: 10px; z-index: 100; margin-top: -48px; }
+.page-btns .pg-btn { display: block; margin-bottom: 16px; }
 .pg-btn { display: block; width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 20px; background: transparent; border: 1px solid #999; border-radius: 4px; text-decoration: none; color: #333; }
 pre { background: #f5f5f5; padding: 6px; font-size: 12px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; overflow-x: hidden; max-width: 100%; }
 .diff-add { background: #d4edda; color: #155724; display: block; margin: 0 -6px; padding: 0 6px; word-wrap: break-word; overflow-wrap: break-word; }
@@ -213,29 +218,31 @@ code { background: #f0f0f0; padding: 1px 4px; font-size: 13px; word-wrap: break-
 ul, ol { padding-left: 20px; }
 li { margin: 2px 0; }
 .checkbox { font-family: monospace; }
-.toggle { text-decoration: none; color: #06c; padding: 4px; }
-.annotate { text-decoration: none; color: #999; font-size: 11px; margin-left: 4px; }
+.toggle { text-decoration: none; color: #000; padding: 4px; font-weight: bold; }
+.annotate { text-decoration: none; color: #000; font-size: 11px; margin-left: 4px; }
 .pen-btn { display: block; width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 18px; background: transparent; border: 1px solid #999; border-radius: 4px; text-decoration: none; color: #333; }
-.line-pen { text-decoration: none; color: #666; font-size: 14px; padding: 4px 8px; margin-left: 4px; }
-.done { color: #666; text-decoration: line-through; }
-blockquote { border-left: 3px solid #ccc; margin: 8px 0; padding: 4px 12px; color: #555; }
-a { color: #06c; }
-.wikilink { color: #8b5cf6; font-style: italic; }
+.line-pen { text-decoration: none; color: #000; font-size: 14px; padding: 4px 8px; margin-left: 4px; }
+.done { color: #000; text-decoration: line-through; }
+blockquote { border-left: 3px solid #000; margin: 8px 0; padding: 4px 12px; color: #000; }
+a { color: #000; }
+.wikilink { color: #000; font-weight: bold; text-decoration: none; }
 </style>
 </head><body>
 <div class="nav">
-<a href="/?t={timestamp}" class="refresh" onclick="">{time_str}</a>
+<a href="/?t={timestamp}" class="refresh">{time_str}</a>
 {day_buttons}
 {period_buttons}
 {diff_button}
 {active_button}
 </div>
-{content}
+<div id="top"></div>
+<div class="content">{content}</div>
+<div id="bottom"></div>
+<div class="top-right-btn">{kindle_button}</div>
 <div class="page-btns">
-{kindle_button}
-{pen_button}
-<a href="{up_url}" class="pg-btn" onclick="">&uarr;</a>
-<a href="{down_url}" class="pg-btn" onclick="">&darr;</a>
+<a href="{up_url}" class="pg-btn">&uarr;</a>
+{nav_button}
+<a href="{down_url}" class="pg-btn">&darr;</a>
 </div>
 </body></html>
 """
@@ -365,10 +372,10 @@ def get_git_diff(repo_path=None):
                 if fname:
                     heading = f"{prefix}-unstaged-{_slug(fname)}"
                     output.append(f'<div class="diff-section"><h4 id="{heading}">{html.escape(fname)}</h4>')
-                    output.append(f"```\n{chunk}\n```\n")
+                    output.append(f"<pre>\n{chunk}\n</pre>\n")
                     output.append("</div>")
                 else:
-                    output.append(f"```\n{chunk}\n```\n")
+                    output.append(f"<pre>\n{chunk}\n</pre>\n")
 
         if unpushed_commits:
             for sha, msg in unpushed_commits:
@@ -397,10 +404,10 @@ def get_git_diff(repo_path=None):
                         if fname:
                             file_anchor = f"{prefix}-{short}-{_slug(fname)}"
                             output.append(f'<div class="diff-section"><h4 id="{file_anchor}">{fname}</h4>')
-                            output.append(f"```\n{chunk}\n```\n")
+                            output.append(f"<pre>\n{chunk}\n</pre>\n")
                             output.append("</div>")
                         else:
-                            output.append(f"```\n{chunk}\n```\n")
+                            output.append(f"<pre>\n{chunk}\n</pre>\n")
                 else:
                     output.append("*No diff (merge commit or empty)*\n")
 
@@ -490,7 +497,7 @@ def _get_github_desktop_active_repo():
                 path_match = re.search(rb'(/Users/[\x20-\x7e]+)', ahead)
                 if path_match:
                     path = path_match.group(1).decode("ascii", errors="ignore").rstrip('"')
-                    if os.path.isdir(os.path.join(path, ".git")):
+                    if os.path.isdir(os.path.join(path, ".git")) or os.path.isfile(os.path.join(path, ".git")):
                         return path
                 idx += 1
         except Exception:
@@ -512,7 +519,7 @@ def get_diff_view():
 
     for repo_path in EXTRA_REPOS:
         real = os.path.realpath(repo_path)
-        if real not in seen_paths and os.path.isdir(os.path.join(repo_path, ".git")):
+        if real not in seen_paths and (os.path.isdir(os.path.join(repo_path, ".git")) or os.path.isfile(os.path.join(repo_path, ".git"))):
             extra_repos.append((os.path.basename(repo_path), repo_path))
             seen_paths.add(real)
 
@@ -624,7 +631,7 @@ def strip_obsidian_dynamic(text):
 def _render_frontmatter(fm_text):
     """Render YAML frontmatter as compact HTML with clickable wiki links."""
     lines = fm_text.split("\n")
-    out = ['<div style="font-size:12px;color:#555;border-bottom:1px solid #ccc;padding:4px 8px;margin-bottom:8px;">']
+    out = ['<div style="font-size:12px;color:#000;border-bottom:1px solid #000;padding:4px 8px;margin-bottom:8px;">']
     # Only show fields that have wiki links or useful values
     link_fields = {"parent", "child", "sibling", "previous", "next", "concept", "opposite"}
     for line in lines:
@@ -640,7 +647,7 @@ def _render_frontmatter(fm_text):
                 display = note_unesc.split("|")[-1] if "|" in note_unesc else note_unesc
                 link_target = note_unesc.split("|")[0]
                 enc = urllib.parse.quote(link_target)
-                return f'<a href="/?action=open&amp;note={enc}" class="wikilink" onclick="">[[{html.escape(display)}]]</a>'
+                return f'<a href="/?action=open&amp;note={enc}" class="wikilink">[[{html.escape(display)}]]</a>'
             rendered = re.sub(r'\[\[([^\]]+)\]\]', _fm_wikilink, html.escape(stripped))
             out.append(f'{rendered}<br>')
         elif ":" in stripped:
@@ -657,7 +664,42 @@ def _render_frontmatter(fm_text):
     return "\n".join(out)
 
 
-def markdown_to_html(text, file_path=None, line_offset=0):
+def find_target_page(text, PAGE_INTERVAL=20):
+    """Find the page number containing today's section or Next Actions fallback.
+
+    Returns page number (0-indexed) or 0 if no match.
+    """
+    today_str = date.today().strftime("%Y-%m-%d")
+    today_header = f"### [[{today_str}]]"
+    today_header2 = f"## [[{today_str}]]"
+    next_actions = "### Next Actions"
+    next_actions2 = "## Next Actions"
+
+    lines = text.split("\n")
+    current_page = 0
+    lines_since_page = 0
+    in_code_block = False
+    target_page = None
+
+    for line in lines:
+        lines_since_page += 1
+        if not in_code_block and lines_since_page >= PAGE_INTERVAL:
+            current_page += 1
+            lines_since_page = 0
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+        if target_page is None and (today_header in line or today_header2 in line):
+            target_page = current_page
+        elif target_page is None and (next_actions in line or next_actions2 in line):
+            target_page = current_page
+
+    return target_page if target_page is not None else 0
+
+
+def markdown_to_html(text, file_path=None, line_offset=0, is_diff=False, page=0):
     """Convert markdown to HTML. No JS needed.
 
     Args:
@@ -665,6 +707,7 @@ def markdown_to_html(text, file_path=None, line_offset=0):
         file_path: Vault-relative path for checkbox toggle links.
         line_offset: Lines stripped before this text (frontmatter) so
             action URLs reference correct line numbers in the original file.
+        page: Which page to render (0-indexed). Only lines for this page are output.
 
     Returns:
         (html_string, total_pages) tuple.
@@ -675,20 +718,11 @@ def markdown_to_html(text, file_path=None, line_offset=0):
     in_code_block = False
     in_list = False
     list_type = None
-    page_counter = 0
-    lines_since_page = 0
-    PAGE_INTERVAL = 20
-
-    output.append('<a id="pg0"></a>')
+    list_depth = 0  # current nesting level
 
     for line_idx, line in enumerate(lines, 1):
         line_num = line_idx + line_offset
         pre_len = len(output)
-        lines_since_page += 1
-        if not in_code_block and lines_since_page >= PAGE_INTERVAL:
-            page_counter += 1
-            output.append(f'<a id="pg{page_counter}"></a>')
-            lines_since_page = 0
 
         if line.strip().startswith("```"):
             if in_code_block:
@@ -698,27 +732,48 @@ def markdown_to_html(text, file_path=None, line_offset=0):
                 output.append("<pre>")
                 in_code_block = True
             continue
+        # Handle raw <pre>/<pre> tags from diff view
+        if is_diff and line.strip() == "<pre>":
+            output.append("<pre>")
+            in_code_block = True
+            continue
+        if is_diff and line.strip() == "</pre>":
+            output.append("</pre>")
+            in_code_block = False
+            continue
 
         if in_code_block:
             escaped = html.escape(line)
-            if line.startswith("+") and not line.startswith("+++"):
+            # Make wiki links clickable even in code blocks
+            def _code_wikilink(m):
+                ref = m.group(1)
+                if "|" in ref:
+                    target, display = ref.split("|", 1)
+                else:
+                    target = display = ref
+                enc = urllib.parse.quote(target)
+                return f'<a href="/?action=open&amp;note={enc}" class="wikilink">[[{html.escape(display)}]]</a>'
+            escaped = re.sub(r'\[\[([^\]]+)\]\]', _code_wikilink, escaped)
+            if is_diff and line.startswith("+") and not line.startswith("+++"):
                 rendered = f'<span class="diff-add">{escaped}</span>'
-            elif line.startswith("-") and not line.startswith("---"):
+            elif is_diff and line.startswith("-") and not line.startswith("---"):
                 rendered = f'<span class="diff-del">{escaped}</span>'
-            elif line.startswith("@@"):
+            elif is_diff and line.startswith("@@"):
                 rendered = f'<span class="diff-hunk">{escaped}</span>'
             else:
                 rendered = escaped
-            # Add ✎ pen button for non-empty code lines
+            # Add [+] pen button for non-empty code lines
             if file_path and line.strip():
                 enc_file = urllib.parse.quote(file_path)
                 pen_url = f"/?action=annotate&amp;file={enc_file}&amp;line={line_num}"
-                rendered = f'{rendered}<a href="{pen_url}" class="line-pen" onclick="">✎</a>'
+                rendered = f'{rendered}<a href="{pen_url}" class="line-pen">[+]</a>'
             output.append(rendered)
             continue
 
         if in_list and not re.match(r'^(\s*[-*+]|\s*\d+\.)\s', line) and line.strip():
-            output.append(f"</{list_type}>")
+            while list_depth > 0:
+                output.append("</ul>")
+                list_depth -= 1
             in_list = False
 
         if line.startswith("# "):
@@ -734,38 +789,62 @@ def markdown_to_html(text, file_path=None, line_offset=0):
             output.append(f"<blockquote>{process_inline(line[2:])}</blockquote>")
         elif re.match(r'^(\s*)- \[x\]\s*(.*)', line):
             m = re.match(r'^(\s*)- \[x\]\s*(.*)', line)
+            indent = len(m.group(1)) // 2 + 1
             if not in_list:
                 output.append("<ul>")
                 in_list = True
                 list_type = "ul"
+                list_depth = 1
+            while list_depth < indent:
+                output.append("<ul>")
+                list_depth += 1
+            while list_depth > indent:
+                output.append("</ul>")
+                list_depth -= 1
             anchor_id = f"ln{line_num}"
             if file_path:
                 enc_file = urllib.parse.quote(file_path)
                 toggle_url = f"/?action=toggle&amp;file={enc_file}&amp;line={line_num}&amp;anchor={anchor_id}"
-                checkbox_html = f'<a href="{toggle_url}" class="checkbox toggle" onclick="">[x]</a>'
+                checkbox_html = f'<a href="{toggle_url}" class="checkbox toggle">[x]</a>'
             else:
                 checkbox_html = '<span class="checkbox">[x]</span>'
             output.append(f'<li id="{anchor_id}" class="done">{checkbox_html} {process_inline(m.group(2))}</li>')
         elif re.match(r'^(\s*)- \[ \]\s*(.*)', line):
             m = re.match(r'^(\s*)- \[ \]\s*(.*)', line)
+            indent = len(m.group(1)) // 2 + 1
             if not in_list:
                 output.append("<ul>")
                 in_list = True
                 list_type = "ul"
+                list_depth = 1
+            while list_depth < indent:
+                output.append("<ul>")
+                list_depth += 1
+            while list_depth > indent:
+                output.append("</ul>")
+                list_depth -= 1
             anchor_id = f"ln{line_num}"
             if file_path:
                 enc_file = urllib.parse.quote(file_path)
                 toggle_url = f"/?action=toggle&amp;file={enc_file}&amp;line={line_num}&amp;anchor={anchor_id}"
-                checkbox_html = f'<a href="{toggle_url}" class="checkbox toggle" onclick="">[ ]</a>'
+                checkbox_html = f'<a href="{toggle_url}" class="checkbox toggle">[ ]</a>'
             else:
                 checkbox_html = '<span class="checkbox">[ ]</span>'
             output.append(f'<li id="{anchor_id}">{checkbox_html} {process_inline(m.group(2))}</li>')
         elif re.match(r'^(\s*)[-*+]\s+(.*)', line):
             m = re.match(r'^(\s*)[-*+]\s+(.*)', line)
+            indent = len(m.group(1)) // 2 + 1
             if not in_list:
                 output.append("<ul>")
                 in_list = True
                 list_type = "ul"
+                list_depth = 1
+            while list_depth < indent:
+                output.append("<ul>")
+                list_depth += 1
+            while list_depth > indent:
+                output.append("</ul>")
+                list_depth -= 1
             output.append(f"<li>{process_inline(m.group(2))}</li>")
         elif re.match(r'^(\s*)\d+\.\s+(.*)', line):
             m = re.match(r'^(\s*)\d+\.\s+(.*)', line)
@@ -775,24 +854,30 @@ def markdown_to_html(text, file_path=None, line_offset=0):
                 list_type = "ol"
             output.append(f"<li>{process_inline(m.group(2))}</li>")
         elif re.match(r'^</?(?:h[1-6]|div|p|ul|ol|li|hr|blockquote|pre|table|tr|td|th)[ >/]', line):
-            # Escape raw HTML to prevent XSS — Kindle doesn't need raw HTML passthrough
-            output.append(html.escape(line))
+            if is_diff:
+                # Trust HTML from diff view (internally generated)
+                output.append(line)
+            else:
+                # Escape raw HTML to prevent XSS in user content
+                output.append(html.escape(line))
         elif re.match(r'^---+$', line):
             output.append("<hr>")
         elif not line.strip():
             if in_list:
-                output.append(f"</{list_type}>")
+                while list_depth > 0:
+                    output.append("</ul>")
+                    list_depth -= 1
                 in_list = False
             output.append("")
         else:
             output.append(f"<p>{process_inline(line)}</p>")
 
-        # Add ✎ pen button inside each non-empty line element — tap to annotate
+        # Add [+] pen button inside each non-empty line element — tap to annotate
         if file_path and line.strip() and len(output) > pre_len:
             last_idx = len(output) - 1
             enc_file = urllib.parse.quote(file_path)
             pen_url = f"/?action=annotate&amp;file={enc_file}&amp;line={line_num}"
-            pen_btn = f'<a href="{pen_url}" class="line-pen" onclick="">✎</a>'
+            pen_btn = f'<a href="{pen_url}" class="line-pen">[+]</a>'
             # Insert pen before closing tag so it stays inline
             last_out = output[last_idx]
             # Match closing tags like </p>, </li>, </h1>, </h2>, </h3>, </blockquote>
@@ -804,11 +889,13 @@ def markdown_to_html(text, file_path=None, line_offset=0):
                 output[last_idx] = last_out + pen_btn
 
     if in_list:
-        output.append(f"</{list_type}>")
+        while list_depth > 0:
+            output.append("</ul>")
+            list_depth -= 1
     if in_code_block:
         output.append("</pre>")
 
-    return "\n".join(output), page_counter
+    return "\n".join(output), 0
 
 
 def process_inline(text):
@@ -822,14 +909,14 @@ def process_inline(text):
         display = note_unesc.split("|")[-1] if "|" in note_unesc else note_unesc
         link_target = note_unesc.split("|")[0]
         enc = urllib.parse.quote(link_target)
-        return f'<a href="/?action=open&amp;note={enc}" class="wikilink" onclick="">[[{html.escape(display)}]]</a>'
+        return f'<a href="/?action=open&amp;note={enc}" class="wikilink">[[{html.escape(display)}]]</a>'
     text = re.sub(r'\[\[([^\]]+)\]\]', _wikilink_replace, text)
     def _safe_link(m):
         label, url = m.group(1), m.group(2)
         url_raw = html.unescape(url)
         if not re.match(r'^(https?://|obsidian://|#)', url_raw):
             return f'{label}'
-        return f'<a href="{url}" onclick="">{label}</a>'
+        return f'<a href="{url}">{label}</a>'
     text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', _safe_link, text)
     text = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', text)
     text = re.sub(r'\*([^*]+)\*', r'<i>\1</i>', text)
@@ -995,18 +1082,18 @@ class Handler(BaseHTTPRequestHandler):
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif; font-size: 15px; }}
-blockquote {{ border-left: 3px solid #ccc; margin: 8px 0; padding: 4px 12px; color: #555; font-size: 13px; }}
+blockquote {{ border-left: 3px solid #000; margin: 8px 0; padding: 4px 12px; color: #000; font-size: 13px; }}
 textarea {{ width: 100%; height: 80px; font-size: 15px; padding: 8px; margin: 8px 0; }}
 button {{ font-size: 16px; padding: 8px 16px; background: #eee; border: 2px solid #333; color: #000; margin-right: 8px; }}
 </style>
 </head><body>
 <h3>Annotate</h3>
 <blockquote>{html.escape(display_line)}</blockquote>
-<form method="POST" action="/?action=annotate_submit">
+<form method="POST" action="/?action=annotate_submit" style="display:inline;">
 <input type="hidden" name="file" value="{enc_file}">
 <input type="hidden" name="quoted" value="{enc_line}">
-<textarea name="comment" placeholder="Your comment (optional)"></textarea><br>
-<button type="submit">Save</button></form><form method="GET" action="/" style="display:inline;"><input type="hidden" name="file" value="{urllib.parse.quote(file_param)}"><input type="hidden" name="scrolled" value="1"><button type="submit">Cancel</button></form>
+<textarea name="comment" placeholder="Your comment (optional)" style="display:block;width:100%;height:80px;font-size:15px;padding:8px;margin:8px 0;"></textarea>
+<button type="submit">Save</button></form> <form method="GET" action="/" style="display:inline;"><input type="hidden" name="file" value="{urllib.parse.quote(file_param)}"><input type="hidden" name="scrolled" value="1"><button type="submit">Cancel</button></form>
 </body></html>"""
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -1167,7 +1254,16 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
             tmp.writelines(lines)
             tmp_path = tmp.name
         os.replace(tmp_path, filepath)
-        self._redirect_back(query)
+        # Redirect back to the same file at the same scroll position
+        enc_file = urllib.parse.quote(file_param)
+        anchor = query.get("anchor", [None])[0]
+        location = f"/?file={enc_file}&scrolled=1"
+        if anchor:
+            anchor = re.sub(r'[\r\n]', '', anchor)
+            location += f"#{anchor}"
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.end_headers()
 
     def _handle_open(self, query):
         """Open a wiki-linked note: show in viewer + open in Obsidian on Mac."""
@@ -1280,11 +1376,17 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
         except (ValueError, TypeError):
             offset = 0
         file_param = query.get("file", [None])[0]
+        file_param_from_url = file_param  # preserve original before auto-fill
         view = query.get("view", [None])[0]
         has_anchor = "scrolled" in query
+        try:
+            cur_page = int(query.get("pg", ["0"])[0]) if "pg" in query else 0
+        except (ValueError, TypeError):
+            cur_page = 0
 
+        raw_for_nav = ""  # raw text for N button page calculation
         if view == "diff":
-            content, total_pages = markdown_to_html(get_diff_view())
+            content, total_pages = markdown_to_html(get_diff_view(), is_diff=True, page=cur_page)
             note_date = "Git Diff"
         else:
             if file_param and "/" in file_param:
@@ -1323,29 +1425,34 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
                         stripped = raw.lstrip("\n")
                         fm_lines += len(raw) - len(stripped)
                         raw = stripped
+                # Auto-jump to today/next-actions page on first load
+                # Auto-scroll to today section or Next Actions on first load
                 today_str = date.today().strftime("%Y-%m-%d")
-                if f"### [[{today_str}]]" in raw or f"## [[{today_str}]]" in raw:
-                    scroll_anchor = _slug(today_str)
-                elif "### Next Actions" in raw or "## Next Actions" in raw:
-                    scroll_anchor = "next-actions"
-                else:
-                    scroll_anchor = ""
-                if not has_anchor and scroll_anchor:
-                    q_parts = []
-                    if file_param:
-                        q_parts.append(f"file={urllib.parse.quote(file_param)}")
-                    elif offset != 0:
-                        q_parts.append(f"day={offset}")
-                    q_parts.append("scrolled=1")
-                    redirect_url = "/?" + "&".join(q_parts) + f"#{scroll_anchor}"
-                    self.send_response(302)
-                    self.send_header("Location", redirect_url)
-                    self.end_headers()
-                    return
+                if not has_anchor:
+                    if f"### [[{today_str}]]" in raw or f"## [[{today_str}]]" in raw:
+                        scroll_anchor = _slug(today_str)
+                    elif "### Next Actions" in raw or "## Next Actions" in raw:
+                        scroll_anchor = "next-actions"
+                    else:
+                        scroll_anchor = ""
+                    if scroll_anchor:
+                        q_parts = []
+                        if file_param:
+                            q_parts.append(f"file={urllib.parse.quote(file_param)}")
+                        elif offset != 0:
+                            q_parts.append(f"day={offset}")
+                        q_parts.append("scrolled=1")
+                        redirect_url = "/?" + "&".join(q_parts) + f"#{scroll_anchor}"
+                        self.send_response(302)
+                        self.send_header("Location", redirect_url)
+                        self.end_headers()
+                        return
                 rel_path = os.path.relpath(filepath, VAULT)
-                content, total_pages = markdown_to_html(raw, file_path=rel_path, line_offset=fm_lines)
-                if fm_html:
+                raw_for_nav = raw
+                content, total_pages = markdown_to_html(raw, file_path=rel_path, line_offset=fm_lines, page=cur_page)
+                if fm_html and cur_page == 0:
                     content = fm_html + content
+                # Only append daily feed on the last page of main content
                 feed_path = os.path.join(FEED_DIR, f"{note_date}_daily-feed.md")
                 if os.path.exists(feed_path):
                     with open(feed_path, "r", encoding="utf-8") as ff:
@@ -1371,31 +1478,35 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
         week_days = get_week_days()
         day_buttons_parts = []
         for name, day_offset, d in week_days:
-            is_active = (not file_param and view != "diff" and day_offset == offset)
-            style = 'style="background:#ddd;font-weight:bold;border:1px solid #333;"' if is_active else ""
+            day_file = d.strftime("%Y-%m-%d") + ".md"
+            is_active = (view != "diff" and (
+                (not file_param_from_url and day_offset == offset) or
+                (file_param_from_url and file_param_from_url.endswith(day_file))
+            ))
+            style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;"' if is_active else ''
             label = f"{name} {d.day}"
-            day_buttons_parts.append(f'<a href="/?day={day_offset}" {style} onclick="">{label}</a>')
+            day_buttons_parts.append(f'<a href="/?day={day_offset}&scrolled=1" {style}>{label}</a>')
         day_buttons = " ".join(day_buttons_parts)
 
         period_files = get_period_files()
         period_parts = []
         for label, filename in period_files:
             is_active = (file_param == filename)
-            style = 'style="background:#ddd;font-weight:bold;border:1px solid #333;"' if is_active else 'style="background:#f5f5f5;"'
-            period_parts.append(f'<a href="/?file={filename}" {style} onclick="">{label}</a>')
+            style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;"' if is_active else ''
+            period_parts.append(f'<a href="/?file={filename}&scrolled=1" {style}>{label}</a>')
         period_buttons = " ".join(period_parts)
 
         is_diff_view = (view == "diff")
-        diff_style = 'style="background:#ddd;font-weight:bold;border:1px solid #333;"' if is_diff_view else 'style="background:#f5f5f5;"'
-        diff_button = f'<a href="/?view=diff" {diff_style} onclick="">Diff</a>'
+        diff_style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;"' if is_diff_view else ''
+        diff_button = f'<a href="/?view=diff&scrolled=1" {diff_style}>Diff</a>'
 
         active_file = get_obsidian_active_file()
         if active_file:
             active_name = os.path.basename(active_file).replace(".md", "")
             display_name = active_name[:ACTIVE_FILE_MAX_CHARS] + "..." if len(active_name) > ACTIVE_FILE_MAX_CHARS else active_name
             is_showing_active = (file_param == active_file)
-            active_style = 'style="background:#ddd;font-weight:bold;border:1px solid #333;"' if is_showing_active else 'style="background:#f5f5f5;"'
-            active_button = f'<a href="/?file={urllib.parse.quote(active_file)}" {active_style} onclick="">{html.escape(display_name)}</a>'
+            active_style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;"' if is_showing_active else ''
+            active_button = f'<a href="/?file={urllib.parse.quote(active_file)}&scrolled=1" {active_style}>{html.escape(display_name)}</a>'
         else:
             active_button = ""
 
@@ -1406,8 +1517,18 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
         if file_param:
             enc_file = urllib.parse.quote(file_param)
             kindle_button = f'<form method="GET" action="/" style="display:inline;margin:0;padding:0;"><input type="hidden" name="action" value="kindle"><input type="hidden" name="file" value="{html.escape(file_param)}"><button type="submit" class="pg-btn">K</button></form>'
+            # N button: jump to today/next-actions anchor
+            today_str = date.today().strftime("%Y-%m-%d")
+            if raw_for_nav and (f"### [[{today_str}]]" in raw_for_nav or f"## [[{today_str}]]" in raw_for_nav):
+                nav_anchor = _slug(today_str)
+            elif raw_for_nav and ("### Next Actions" in raw_for_nav or "## Next Actions" in raw_for_nav):
+                nav_anchor = "next-actions"
+            else:
+                nav_anchor = "top"
+            nav_button = f'<a href="#{nav_anchor}" class="pg-btn">N</a>'
         else:
             kindle_button = ""
+            nav_button = ""
 
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -1416,25 +1537,8 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
         self.send_header("Expires", "0")
         self.end_headers()
 
-        try:
-            cur_page = int(query.get("pg", ["0"])[0]) if "pg" in query else 0
-        except (ValueError, TypeError):
-            cur_page = 0
-        prev_page = max(0, cur_page - 1)
-        next_page = min(total_pages, cur_page + 1)
-
-        # Build page nav URLs preserving current view params
-        nav_parts = []
-        if file_param:
-            nav_parts.append(f"file={urllib.parse.quote(file_param)}")
-        elif offset != 0:
-            nav_parts.append(f"day={offset}")
-        if view:
-            nav_parts.append(f"view={view}")
-        nav_parts.append("scrolled=1")
-        nav_base = "/?" + "&".join(nav_parts)
-        up_url = f"{nav_base}&pg={prev_page}#pg{prev_page}"
-        down_url = f"{nav_base}&pg={next_page}#pg{next_page}"
+        up_url = "#top"
+        down_url = "#bottom"
 
         page = (HTML_TEMPLATE
             .replace("{timestamp}", str(now_ts))
@@ -1448,6 +1552,7 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
             .replace("{down_url}", down_url)
             .replace("{pen_button}", pen_button)
             .replace("{kindle_button}", kindle_button)
+            .replace("{nav_button}", nav_button)
         )
         self.wfile.write(page.encode())
 
