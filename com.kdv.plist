@@ -5,10 +5,10 @@
     <key>Label</key>
     <string>com.kdv.server</string>
 
-    <!-- Update path to match your install: brew --prefix, or wherever kdv lives -->
     <key>ProgramArguments</key>
     <array>
-        <string>/opt/homebrew/bin/kdv</string>
+        <string>__PYTHON3__</string>
+        <string>__KDV_SCRIPT__</string>
     </array>
 
     <key>RunAtLoad</key>

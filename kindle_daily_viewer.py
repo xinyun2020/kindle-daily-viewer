@@ -533,7 +533,7 @@ def get_diff_view():
 
     # Table of contents
     output.append("### Repos\n")
-    output.append(f"- [Obsidian](#repo-vault)")
+    output.append(f"- [Obsidian](#obsidian)")
     for wt_name, wt_path in worktrees:
         output.append(f"- [{wt_name}](#{_slug(wt_name)})")
     for name, path in extra_repos:
