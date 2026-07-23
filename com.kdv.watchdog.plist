@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.kdv.watchdog</string>
+
+    <!-- WHY /bin/bash + a copy under ~/.local/bin (NOT the repo path directly):
+         launchd cannot exec/read a script inside TCC-protected ~/Documents
+         unless the executing binary has Full Disk Access. The watchdog needs no
+         vault access (it only curls localhost + kickstarts the server), so
+         instead of granting FDA we stage a copy in the non-TCC ~/.local/bin and
+         run it via /bin/bash. install-service.sh does that staging. Pointing this
+         at the repo copy under ~/Documents fails with exit 126 "Operation not
+         permitted" (the 2026-06-10 -> 2026-07-06 breakage). -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__WATCHDOG_SCRIPT__</string>
+        <string>__PORT__</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>60</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/kdv-watchdog.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/kdv-watchdog.log</string>
+</dict>
+</plist>
