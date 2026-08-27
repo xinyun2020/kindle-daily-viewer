@@ -209,7 +209,7 @@ body { margin: 0; padding: 0; background: #fff; color: #000; font-family: Georgi
    hidden under a fixed bar with a guessed-wrong 40px padding. */
 .nav { background: #eee; padding: 6px 8px; font-family: monospace; font-size: 12px; border-bottom: 2px solid #000; position: sticky; top: 0; left: 0; right: 0; z-index: 99; line-height: 2; }
 .content { padding-top: 4px; }
-.nav a { margin-right: 4px; text-decoration: none; color: #000; padding: 2px 4px; }
+.nav a { margin-right: 4px; text-decoration: none; color: #000; padding: 8px; display: inline-block; }
 .nav a.refresh { background: #ddd; font-weight: bold; border: 1px solid #333; }
 h1, h2, h3 { scroll-margin-top: 50px; }
 h1 { font-size: 20px; margin: 8px 0; word-wrap: break-word; overflow-wrap: break-word; }
@@ -221,14 +221,14 @@ h4 { font-size: 14px; margin: 0; word-wrap: break-word; overflow-wrap: break-wor
 .top-right-btn .pg-btn { margin-bottom: 8px; }
 .page-btns { position: fixed; top: 50%; right: 10px; z-index: 100; margin-top: -48px; }
 .page-btns .pg-btn { display: block; margin-bottom: 16px; }
-.pg-btn { display: block; width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 20px; background: transparent; border: 1px solid #999; border-radius: 4px; text-decoration: none; color: #333; }
+.pg-btn { display: block; width: 44px; height: 44px; line-height: 44px; text-align: center; font-size: 20px; background: transparent; border: 1px solid #999; border-radius: 4px; text-decoration: none; color: #333; }
 pre { background: #fff; padding: 0; font-size: 13px; line-height: 1.35; font-family: "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; overflow-x: hidden; max-width: 100%; border: 1px solid #d0d7de; border-radius: 6px; margin: 6px 0; }
 /* GitHub diff rows: CONTIGUOUS (no vertical gaps/margins between lines — that's what
    made it read "torn"/撕裂). Full-width row bg + inline gutter prefix. Rows are flush. */
 .diff-add, .diff-del, .diff-ctx { display: block; color: #24292f; margin: 0; padding: 0; word-wrap: break-word; overflow-wrap: break-word; }
 .diff-add { background: #e6ffec; }
 .diff-del { background: #ffebe9; }
-.diff-gut { display: inline-block; min-width: 2.4em; padding: 0 6px; margin: 0 6px 0 0; color: #8b949e; background: #f6f8fa; text-align: right; -webkit-user-select: none; }
+.diff-gut { display: inline-block; min-width: 2.4em; padding: 0 6px; margin: 0 6px 0 0; color: #57606a; background: #f6f8fa; text-align: right; -webkit-user-select: none; }
 .diff-add .diff-gut { background: #ccffd8; color: #1a7f37; }
 .diff-del .diff-gut { background: #ffd7d5; color: #cf222e; }
 .diff-hunk { color: #57606a; display: block; background: #ddf4ff; padding: 2px 6px; margin: 0; font-weight: bold; word-wrap: break-word; overflow-wrap: break-word; }
@@ -238,10 +238,11 @@ pre { background: #fff; padding: 0; font-size: 13px; line-height: 1.35; font-fam
 .wd-add { background: #ccffd8; color: #1a7f37; font-weight: bold; text-decoration: underline; }
 /* v3 GitHub-PR-style review: sticky per-file header, fold via <details>, reviewed-checkbox
    collapses the file body with pure CSS (:checked + sibling), no JS — works on e-ink. */
-.rv-cb { position: absolute; left: -9999px; }  /* visually hidden; label is the control */
+.rv-cb { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }  /* visually hidden but stays in place; label is the control */
+.rv-cb:focus + .rv-file .rv-mark { outline: 2px solid #0969da; outline-offset: 2px; }
 .rv-file { border: 1px solid #d0d7de; border-radius: 6px; margin: 8px 0; }
 .rv-head { position: sticky; top: 34px; background: #f6f8fa; padding: 8px 10px; border-bottom: 1px solid #d0d7de; font-size: 15px; cursor: pointer; word-break: break-word; z-index: 5; }
-.rv-mark { display: inline-block; min-width: 1.4em; height: 1.4em; line-height: 1.4em; text-align: center; border: 1px solid #999; border-radius: 4px; color: #bbb; margin-right: 6px; text-decoration: none; }
+.rv-mark { display: inline-block; min-width: 1.4em; height: 1.4em; line-height: 1.4em; text-align: center; border: 1px solid #999; border-radius: 4px; color: #767676; margin-right: 6px; text-decoration: none; }
 .rv-cb:checked + .rv-file .rv-mark { background: #1a7f37; color: #fff; border-color: #1a7f37; }  /* reviewed = green check */
 .rv-cb:checked + .rv-file .rv-head { background: #e6ffec; }
 .rv-cb:checked + .rv-file > pre { display: none; }  /* fold the diff when reviewed */
@@ -257,7 +258,6 @@ li { margin: 2px 0; }
 .checkbox { font-family: monospace; }
 .toggle { text-decoration: none; color: #000; padding: 4px; font-weight: bold; }
 .annotate { text-decoration: none; color: #000; font-size: 11px; margin-left: 4px; }
-.pen-btn { display: block; width: 40px; height: 40px; line-height: 40px; text-align: center; font-size: 18px; background: transparent; border: 1px solid #999; border-radius: 4px; text-decoration: none; color: #333; }
 .line-pen { text-decoration: none; color: #000; font-size: 14px; padding: 4px 8px; margin-left: 4px; }
 .done { color: #000; text-decoration: line-through; }
 blockquote { border-left: 3px solid #000; margin: 8px 0; padding: 4px 12px; color: #000; }
@@ -278,12 +278,34 @@ a { color: #000; }
 <div id="bottom"></div>
 <div class="top-right-btn">{kindle_button}</div>
 <div class="page-btns">
-<a href="{up_url}" class="pg-btn">&uarr;</a>
+<a href="{up_url}" class="pg-btn" aria-label="Scroll to top">&uarr;</a>
 {nav_button}
-<a href="{down_url}" class="pg-btn">&darr;</a>
+<a href="{down_url}" class="pg-btn" aria-label="Scroll to bottom">&darr;</a>
 </div>
 </body></html>
 """
+
+_CONTENT_SENTINEL = "\x00KDV_CONTENT\x00"
+_CHROME_TOKEN_RE = re.compile(r'\{[a-z_]+\}')
+
+
+def _render_page(content, **chrome):
+    """Fill HTML_TEMPLATE with chrome values in ONE non-recursive pass, then inject
+    content LAST.
+
+    A chained .replace() per placeholder re-scans the growing output on every step,
+    so an EARLIER substitution's inserted text (e.g. a chrome value that happens to
+    contain the literal string "{content}" — say, an active-file button whose title
+    IS "{content}") gets corrupted by a LATER placeholder's replace() call. Doing all
+    chrome substitution in one regex pass over the ORIGINAL template avoids that: the
+    replacement text is never rescanned for further matches. {content} is swapped in
+    via a control-character sentinel (never present in chrome HTML we generate) so the
+    final content substitution can't accidentally also match literal "{content}" text
+    that arrived via a chrome value.
+    """
+    page = HTML_TEMPLATE.replace("{content}", _CONTENT_SENTINEL)
+    page = _CHROME_TOKEN_RE.sub(lambda m: chrome.get(m.group(0)[1:-1], m.group(0)), page)
+    return page.replace(_CONTENT_SENTINEL, content)
 
 
 # =============================================================================
@@ -321,6 +343,30 @@ def get_obsidian_active_file():
 def _slug(text):
     """Generate anchor slug matching markdown_to_html's heading id logic."""
     return re.sub(r'[^a-z0-9]+', '-', text.lower()).strip('-')
+
+
+def _is_git_repo(path):
+    """True if path has a .git dir (normal repo) or .git file (worktree/submodule)."""
+    return os.path.isdir(os.path.join(path, ".git")) or os.path.isfile(os.path.join(path, ".git"))
+
+
+def _clamp_ctx(ctx_lines, default=1, max_val=10):
+    """Parse+clamp a &ctx= query value to [0, max_val], falling back to default."""
+    try:
+        return max(0, min(int(ctx_lines), max_val)) if ctx_lines is not None else default
+    except (ValueError, TypeError):
+        return default
+
+
+def _scroll_anchor(raw_text, today_str, default=""):
+    """Pick the anchor to auto-jump to: today's dated section, else Next Actions, else default."""
+    if not raw_text:
+        return default
+    if f"### [[{today_str}]]" in raw_text or f"## [[{today_str}]]" in raw_text:
+        return _slug(today_str)
+    if "### Next Actions" in raw_text or "## Next Actions" in raw_text:
+        return "next-actions"
+    return default
 
 
 def _short_worktree_name(name):
@@ -552,7 +598,7 @@ def list_review_worktrees(force=False):
     rows = []
     for name in os.listdir(WORKTREE_DIR):
         path = os.path.join(WORKTREE_DIR, name)
-        if not os.path.isdir(os.path.join(path, ".git")) and not os.path.isfile(os.path.join(path, ".git")):
+        if not _is_git_repo(path):
             continue
         # 1 call: last-commit epoch + relative time
         log_line = _git(path, "log", "-1", "--format=%ct%x1f%cr").strip()
@@ -602,7 +648,7 @@ def _review_repo_from_param(repo_param):
         return None
     if not os.path.isdir(candidate):
         return None
-    if not (os.path.isdir(os.path.join(candidate, ".git")) or os.path.isfile(os.path.join(candidate, ".git"))):
+    if not _is_git_repo(candidate):
         return None
     return candidate
 
@@ -801,10 +847,7 @@ def get_review_view(repo_param=None, scope=None, file_only=None, history_n=50, c
         # -U1: show only the REAL changes + 1 line of context, not the whole file.
         # Real-use friction: "not all is diff, I just want the real diff,
         # not full-line check." Toggle to more context via &ctx=N if ever needed.
-        try:
-            ctx = max(0, min(int(ctx_lines), 10)) if ctx_lines is not None else 1
-        except (ValueError, TypeError):
-            ctx = 1
+        ctx = _clamp_ctx(ctx_lines)
 
         def _file_url(path, c=None):
             u = f"/?view=review&repo={enc_repo}&scope={scope}&file={urllib.parse.quote(path)}"
@@ -898,7 +941,7 @@ def get_review_view(repo_param=None, scope=None, file_only=None, history_n=50, c
             chunk, err = _file_diff_chunk(repo, diff_specs, path, ctx, word_diff,
                                           untracked=(added == "?"))
             # checkbox + details. :checked collapses the file body (CSS handles it, no JS).
-            out.append(f'<input type="checkbox" id="{cb_id}" class="rv-cb">')
+            out.append(f'<input type="checkbox" id="{cb_id}" class="rv-cb" aria-label="Mark {html.escape(path)} reviewed">')
             out.append(f'<details class="rv-file" id="{anchor}" open>')
             out.append(f'<summary class="rv-head"><label for="{cb_id}" class="rv-mark">✓</label> '
                        f'<b>{html.escape(path)}</b> <span class="rv-stat">{stat}</span></summary>')
@@ -980,7 +1023,7 @@ def _get_github_desktop_active_repo():
                 path_match = re.search(rb'(/Users/[\x20-\x7e]+)', ahead)
                 if path_match:
                     path = path_match.group(1).decode("ascii", errors="ignore").rstrip('"')
-                    if os.path.isdir(os.path.join(path, ".git")) or os.path.isfile(os.path.join(path, ".git")):
+                    if _is_git_repo(path):
                         return path
                 idx += 1
         except Exception:
@@ -1002,7 +1045,7 @@ def get_diff_view():
 
     for repo_path in EXTRA_REPOS:
         real = os.path.realpath(repo_path)
-        if real not in seen_paths and (os.path.isdir(os.path.join(repo_path, ".git")) or os.path.isfile(os.path.join(repo_path, ".git"))):
+        if real not in seen_paths and _is_git_repo(repo_path):
             extra_repos.append((os.path.basename(repo_path), repo_path))
             seen_paths.add(real)
 
@@ -1223,9 +1266,6 @@ def markdown_to_html(text, file_path=None, line_offset=0, is_diff=False):
         lists compare consistently."""
         return len(whitespace.replace("\t", "    "))
 
-    def _list_depth():
-        return len(indent_widths)
-
     def _close_all_lists():
         """Close every open item and list, innermost first (valid nesting order)."""
         while tag_stack:
@@ -1364,7 +1404,7 @@ def markdown_to_html(text, file_path=None, line_offset=0, is_diff=False):
                 if file_path and line.strip() and (line.startswith(("+", "-")) and not line.startswith(("+++", "---"))):
                     enc_file = urllib.parse.quote(file_path)
                     pen_url = f"/?action=annotate&amp;file={enc_file}&amp;line={line_num}"
-                    rendered = f'{rendered}<a href="{pen_url}" class="line-pen">[+]</a>'
+                    rendered = f'{rendered}<a href="{pen_url}" class="line-pen" aria-label="Annotate this line">[+]</a>'
                 # Emit diff rows with a trailing marker so the final join strips the newline
                 # between them (block spans already break lines). Non-diff/plain lines keep \n.
                 output.append(rendered + "\x00NONL")
@@ -1375,7 +1415,7 @@ def markdown_to_html(text, file_path=None, line_offset=0, is_diff=False):
             if file_path and line.strip():
                 enc_file = urllib.parse.quote(file_path)
                 pen_url = f"/?action=annotate&amp;file={enc_file}&amp;line={line_num}"
-                rendered = f'{rendered}<a href="{pen_url}" class="line-pen">[+]</a>'
+                rendered = f'{rendered}<a href="{pen_url}" class="line-pen" aria-label="Annotate this line">[+]</a>'
             output.append(rendered)
             continue
 
@@ -1447,7 +1487,7 @@ def markdown_to_html(text, file_path=None, line_offset=0, is_diff=False):
             last_idx = len(output) - 1
             enc_file = urllib.parse.quote(file_path)
             pen_url = f"/?action=annotate&amp;file={enc_file}&amp;line={line_num}"
-            pen_btn = f'<a href="{pen_url}" class="line-pen">[+]</a>'
+            pen_btn = f'<a href="{pen_url}" class="line-pen" aria-label="Annotate this line">[+]</a>'
             # Insert pen before closing tag so it stays inline
             last_out = output[last_idx]
             # Match closing tags like </p>, </li>, </h1>, </h2>, </h3>, </blockquote>
@@ -1549,15 +1589,9 @@ def resolve_note(note_ref):
 VAULT_NAME = os.path.basename(VAULT)
 
 
-_vault_real = os.path.realpath(VAULT)
-
-
 def _send_to_kindle(filepath):
     """Convert markdown to PDF via pandoc and email to Kindle."""
-    import tempfile, traceback
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.base import MIMEBase
-    from email import encoders
+    import traceback
     try:
         return _send_to_kindle_impl(filepath)
     except Exception:
@@ -1608,14 +1642,16 @@ def _send_to_kindle_impl(filepath):
             server.send_message(msg)
 
 
-def _safe_vault_path(file_param):
-    """Resolve file_param to an absolute path inside VAULT.
-    Returns None if path escapes vault, targets hidden dirs, or isn't a .md file."""
-    filepath = os.path.realpath(os.path.join(VAULT, file_param))
-    if not filepath.startswith(_vault_real + os.sep) and filepath != _vault_real:
+def _safe_vault_path(file_param, root=None):
+    """Resolve file_param to an absolute path inside root (default VAULT).
+    Returns None if path escapes root, targets hidden dirs, or isn't a .md file."""
+    root = root if root is not None else VAULT
+    root_real = os.path.realpath(root)
+    filepath = os.path.realpath(os.path.join(root, file_param))
+    if not filepath.startswith(root_real + os.sep) and filepath != root_real:
         return None
     # Block hidden directories (.git, .obsidian, etc.)
-    rel = os.path.relpath(filepath, _vault_real)
+    rel = os.path.relpath(filepath, root_real)
     if any(part.startswith(".") for part in rel.split(os.sep)):
         return None
     # Only allow markdown files
@@ -1662,8 +1698,10 @@ class Handler(BaseHTTPRequestHandler):
         enc_file = html.escape(file_param)
         enc_line = html.escape(quoted_line)
         form_html = f"""<!DOCTYPE html>
-<html><head>
+<html lang="en"><head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Annotate — KDV</title>
 <style>
 body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif; font-size: 15px; }}
 blockquote {{ border-left: 3px solid #000; margin: 8px 0; padding: 4px 12px; color: #000; font-size: 13px; }}
@@ -1671,12 +1709,13 @@ textarea {{ width: 100%; height: 80px; font-size: 15px; padding: 8px; margin: 8p
 button {{ font-size: 16px; padding: 8px 16px; background: #eee; border: 2px solid #333; color: #000; margin-right: 8px; }}
 </style>
 </head><body>
-<h3>Annotate</h3>
+<h1>Annotate</h1>
 <blockquote>{html.escape(display_line)}</blockquote>
 <form method="POST" action="/?action=annotate_submit" style="display:inline;">
 <input type="hidden" name="file" value="{enc_file}">
 <input type="hidden" name="quoted" value="{enc_line}">
-<textarea name="comment" placeholder="Your comment (optional)" style="display:block;width:100%;height:80px;font-size:15px;padding:8px;margin:8px 0;"></textarea>
+<label for="comment">Your comment</label>
+<textarea id="comment" name="comment" placeholder="Your comment (optional)" style="display:block;width:100%;height:80px;font-size:15px;padding:8px;margin:8px 0;"></textarea>
 <button type="submit">Save</button></form> <form method="GET" action="/" style="display:inline;"><input type="hidden" name="file" value="{urllib.parse.quote(file_param)}"><input type="hidden" name="scrolled" value="1"><button type="submit">Cancel</button></form>
 </body></html>"""
         self.send_response(200)
@@ -1717,11 +1756,7 @@ button {{ font-size: 16px; padding: 8px 16px; background: #eee; border: 2px soli
                 break
         if z_idx is not None:
             # Append at end of file (after # Z, all entries go below)
-            # Ensure last line isn't empty string that would double-space
-            if lines and lines[-1].strip() == "":
-                lines.append(entry)
-            else:
-                lines.append(entry)
+            lines.append(entry)
         else:
             # Create # Z section at end of file
             lines.append("")
@@ -1761,8 +1796,10 @@ button {{ font-size: 16px; padding: 8px 16px; background: #eee; border: 2px soli
             send_btn = f'<form method="GET" action="/" style="display:inline;"><input type="hidden" name="action" value="kindle_send"><input type="hidden" name="file" value="{html.escape(file_param)}"><button type="submit" class="btn">Send</button></form>'
         cancel_btn = f'<form method="GET" action="/" style="display:inline;"><input type="hidden" name="file" value="{html.escape(file_param)}"><input type="hidden" name="scrolled" value="1"><button type="submit" class="btn">Cancel</button></form>'
         confirm_html = f"""<!DOCTYPE html>
-<html><head>
+<html lang="en"><head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Send to Kindle — KDV</title>
 <style>
 body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif; font-size: 15px; }}
 .filename {{ font-size: 18px; font-weight: bold; margin: 16px 0; padding: 12px; border: 1px solid #ccc; background: #f9f9f9; }}
@@ -1770,7 +1807,7 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
 .btn {{ font-size: 16px; padding: 10px 20px; margin-right: 12px; background: #eee; border: 2px solid #333; color: #000; }}
 </style>
 </head><body>
-<h3>Send to Kindle</h3>
+<h1>Send to Kindle</h1>
 <div class="filename">{html.escape(display_name)}</div>
 {action_html}
 <div class="btns">
@@ -1967,7 +2004,7 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
         raw_for_nav = ""  # raw text for N button anchor calculation
         if view == "diff":
             content = markdown_to_html(get_diff_view(), is_diff=True)
-            note_date = "Git Diff"
+            page_label = "Git Diff"
         elif view == "review":
             repo_param = query.get("repo", [None])[0]
             scope = query.get("scope", [None])[0]
@@ -1976,7 +2013,7 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
             word_diff = query.get("words", ["0"])[0] == "1"
             review_md = get_review_view(repo_param, scope=scope, file_only=file_only, ctx_lines=ctx_lines, word_diff=word_diff)
             content = markdown_to_html(review_md, is_diff=True)
-            note_date = "Review"
+            page_label = "Review"
         else:
             if file_param and "/" in file_param:
                 filepath = _safe_vault_path(file_param)
@@ -1984,27 +2021,20 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
                     self.send_response(403)
                     self.end_headers()
                     return
-                note_date = os.path.basename(file_param).replace(".md", "")
+                page_label = os.path.basename(file_param).replace(".md", "")
             elif file_param:
                 # Bare name = a daily/period note under DAILY_DIR. Enforce the SAME policy as
                 # _safe_vault_path (stay inside the dir, .md only, no hidden parts) so a bare
                 # param can't read a non-.md or dotfile, or escape via '..'.
-                daily_real = os.path.realpath(DAILY_DIR)
-                filepath = os.path.realpath(os.path.join(DAILY_DIR, file_param))
-                rel = os.path.relpath(filepath, daily_real)
-                bad = (
-                    not (filepath == daily_real or filepath.startswith(daily_real + os.sep))
-                    or not filepath.endswith(".md")
-                    or any(part.startswith(".") for part in rel.split(os.sep))
-                )
-                if bad:
+                filepath = _safe_vault_path(file_param, root=DAILY_DIR)
+                if not filepath:
                     self.send_response(403)
                     self.end_headers()
                     return
-                note_date = file_param.replace(".md", "")
+                page_label = file_param.replace(".md", "")
             else:
                 filepath, target_date = get_daily_file(offset)
-                note_date = target_date.strftime("%Y-%m-%d")
+                page_label = target_date.strftime("%Y-%m-%d")
                 file_param = os.path.relpath(filepath, VAULT)
 
             if os.path.exists(filepath):
@@ -2019,12 +2049,7 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
                 # Auto-scroll to today section or Next Actions on first load
                 today_str = date.today().strftime("%Y-%m-%d")
                 if not has_anchor:
-                    if f"### [[{today_str}]]" in raw or f"## [[{today_str}]]" in raw:
-                        scroll_anchor = _slug(today_str)
-                    elif "### Next Actions" in raw or "## Next Actions" in raw:
-                        scroll_anchor = "next-actions"
-                    else:
-                        scroll_anchor = ""
+                    scroll_anchor = _scroll_anchor(raw, today_str, default="")
                     if scroll_anchor:
                         q_parts = []
                         if file_param:
@@ -2043,7 +2068,7 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
                 if fm_html:
                     content = fm_html + content
                 # Append the daily feed below the note, if one exists for this date.
-                feed_path = os.path.join(FEED_DIR, f"{note_date}_daily-feed.md")
+                feed_path = os.path.join(FEED_DIR, f"{page_label}_daily-feed.md")
                 if os.path.exists(feed_path):
                     with open(feed_path, "r", encoding="utf-8") as ff:
                         feed_raw = ff.read()
@@ -2052,7 +2077,7 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
                     feed_html = markdown_to_html(feed_raw, file_path=feed_rel, line_offset=feed_fm_lines)
                     content += '<hr><h2 id="daily-feed">Daily Feed</h2>' + feed_html
             else:
-                content = f"<p>No note for {html.escape(note_date)}</p>"
+                content = f"<p>No note for {html.escape(page_label)}</p>"
 
         week_days = get_week_days()
         day_buttons_parts = []
@@ -2062,7 +2087,7 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
                 (not file_param_from_url and day_offset == offset) or
                 (file_param_from_url and file_param_from_url.endswith(day_file))
             ))
-            style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;"' if is_active else ''
+            style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;" aria-current="page"' if is_active else ''
             label = f"{name} {d.day}"
             day_buttons_parts.append(f'<a href="/?day={day_offset}&scrolled=1" {style}>{label}</a>')
         day_buttons = " ".join(day_buttons_parts)
@@ -2071,16 +2096,16 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
         period_parts = []
         for label, filename in period_files:
             is_active = (file_param == filename)
-            style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;"' if is_active else ''
+            style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;" aria-current="page"' if is_active else ''
             period_parts.append(f'<a href="/?file={filename}&scrolled=1" {style}>{label}</a>')
         period_buttons = " ".join(period_parts)
 
         is_diff_view = (view == "diff")
-        diff_style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;"' if is_diff_view else ''
+        diff_style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;" aria-current="page"' if is_diff_view else ''
         diff_button = f'<a href="/?view=diff&scrolled=1" {diff_style}>Diff</a>'
 
         is_review_view = (view == "review")
-        review_style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;"' if is_review_view else ''
+        review_style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;" aria-current="page"' if is_review_view else ''
         review_button = f'<a href="/?view=review&scrolled=1" {review_style}>Review</a>'
 
         active_file = get_obsidian_active_file()
@@ -2088,7 +2113,7 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
             active_name = os.path.basename(active_file).replace(".md", "")
             display_name = active_name[:ACTIVE_FILE_MAX_CHARS] + "..." if len(active_name) > ACTIVE_FILE_MAX_CHARS else active_name
             is_showing_active = (file_param == active_file)
-            active_style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;"' if is_showing_active else ''
+            active_style = 'style="background:#000;color:#fff;font-weight:bold;border:2px solid #000;padding:2px 6px;" aria-current="page"' if is_showing_active else ''
             active_button = f'<a href="/?file={urllib.parse.quote(active_file)}&scrolled=1" {active_style}>{html.escape(display_name)}</a>'
         else:
             active_button = ""
@@ -2096,19 +2121,13 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
         now_ts = int(time.time())
         time_str = time.strftime("%H:%M")
 
-        pen_button = ""
         if file_param:
             enc_file = urllib.parse.quote(file_param)
-            kindle_button = f'<form method="GET" action="/" style="display:inline;margin:0;padding:0;"><input type="hidden" name="action" value="kindle"><input type="hidden" name="file" value="{html.escape(file_param)}"><button type="submit" class="pg-btn">K</button></form>'
+            kindle_button = f'<form method="GET" action="/" style="display:inline;margin:0;padding:0;"><input type="hidden" name="action" value="kindle"><input type="hidden" name="file" value="{html.escape(file_param)}"><button type="submit" class="pg-btn" aria-label="Send to Kindle">K</button></form>'
             # N button: jump to today/next-actions anchor
             today_str = date.today().strftime("%Y-%m-%d")
-            if raw_for_nav and (f"### [[{today_str}]]" in raw_for_nav or f"## [[{today_str}]]" in raw_for_nav):
-                nav_anchor = _slug(today_str)
-            elif raw_for_nav and ("### Next Actions" in raw_for_nav or "## Next Actions" in raw_for_nav):
-                nav_anchor = "next-actions"
-            else:
-                nav_anchor = "top"
-            nav_button = f'<a href="#{nav_anchor}" class="pg-btn">N</a>'
+            nav_anchor = _scroll_anchor(raw_for_nav, today_str, default="top")
+            nav_button = f'<a href="#{nav_anchor}" class="pg-btn" aria-label="Jump to today or next actions">N</a>'
         else:
             kindle_button = ""
             nav_button = ""
@@ -2123,25 +2142,23 @@ body {{ margin: 20px; background: #fff; color: #000; font-family: Georgia, serif
         up_url = "#top"
         down_url = "#bottom"
 
-        # Substitute ALL chrome placeholders first, then inject {content} LAST — otherwise
-        # a note that literally contains "{kindle_button}" or "{nav_button}" would have its
-        # own text replaced by live template HTML.
-        page_title = f"{note_date} — KDV" if note_date else "KDV"
-        page = (HTML_TEMPLATE
-            .replace("{page_title}", html.escape(page_title))
-            .replace("{timestamp}", str(now_ts))
-            .replace("{time_str}", time_str)
-            .replace("{diff_button}", diff_button)
-            .replace("{review_button}", review_button)
-            .replace("{active_button}", active_button)
-            .replace("{day_buttons}", day_buttons)
-            .replace("{period_buttons}", period_buttons)
-            .replace("{up_url}", up_url)
-            .replace("{down_url}", down_url)
-            .replace("{pen_button}", pen_button)
-            .replace("{kindle_button}", kindle_button)
-            .replace("{nav_button}", nav_button)
-            .replace("{content}", content)
+        # Chrome placeholders substituted in ONE non-recursive pass, {content} last —
+        # see _render_page for why (kills the chained-replace injection footgun).
+        page_title = f"{page_label} — KDV" if page_label else "KDV"
+        page = _render_page(
+            content,
+            page_title=html.escape(page_title),
+            timestamp=str(now_ts),
+            time_str=time_str,
+            diff_button=diff_button,
+            review_button=review_button,
+            active_button=active_button,
+            day_buttons=day_buttons,
+            period_buttons=period_buttons,
+            up_url=up_url,
+            down_url=down_url,
+            kindle_button=kindle_button,
+            nav_button=nav_button,
         )
         self.wfile.write(page.encode())
 

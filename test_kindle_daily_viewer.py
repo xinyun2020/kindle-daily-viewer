@@ -373,17 +373,57 @@ class GitExTests(unittest.TestCase):
 class TemplateInjectionTests(unittest.TestCase):
     """Finding #11 — note content containing a placeholder token got replaced.
 
-    Verified structurally: {content} must be the LAST replace() in do_GET so a note
-    body containing '{nav_button}' survives verbatim. We assert on source order.
+    2026-07-24: the chained .replace() calls were collapsed into one non-recursive
+    _render_page pass so a CHROME value containing a placeholder-shaped token (e.g.
+    an active-file button whose title literally is "{content}") can no longer get
+    corrupted by a later substitution. Verified BEHAVIORALLY (not via source order,
+    since there is no replace-chain left to grep for).
     """
 
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp()
+        os.makedirs(os.path.join(cls.tmp, "log"), exist_ok=True)
+        cls.m = _load_module(cls.tmp)
+
     def test_content_substituted_last(self):
-        with open(os.path.join(HERE, "kindle_daily_viewer.py")) as fh:
-            src = fh.read()
-        # find the replace-chain block
-        idx_content = src.index('.replace("{content}", content)')
-        idx_nav = src.index('.replace("{nav_button}", nav_button)')
-        self.assertLess(idx_nav, idx_content, "{content} must be replaced after chrome tokens")
+        page = self.m._render_page(
+            "REAL_CONTENT_MARKER",
+            page_title="t", timestamp="0", time_str="0",
+            diff_button="", review_button="", active_button="",
+            day_buttons="", period_buttons="", up_url="#top", down_url="#bottom",
+            kindle_button="", nav_button="",
+        )
+        self.assertIn("REAL_CONTENT_MARKER", page)
+        self.assertNotIn("{content}", page)
+
+    def test_chrome_value_containing_content_token_is_not_corrupted(self):
+        # A chrome value that literally contains "{content}" must NOT get overwritten
+        # by the real content substitution — only the template's own {content} token should.
+        page = self.m._render_page(
+            "REAL_CONTENT_MARKER",
+            page_title="t", timestamp="0", time_str="0",
+            diff_button="", review_button="",
+            active_button='<a>{content}</a>',
+            day_buttons="", period_buttons="", up_url="#top", down_url="#bottom",
+            kindle_button="", nav_button="",
+        )
+        self.assertIn("REAL_CONTENT_MARKER", page)
+        self.assertIn('<a>{content}</a>', page)  # survives verbatim, not replaced
+
+    def test_chrome_value_containing_other_placeholder_is_not_corrupted(self):
+        # A chrome value containing another placeholder-shaped token (e.g. a note
+        # titled "{nav_button}") must not be rescanned/replaced by that placeholder's
+        # own substitution — the whole point of a single non-recursive pass.
+        page = self.m._render_page(
+            "c",
+            page_title="t", timestamp="0", time_str="0",
+            diff_button="", review_button="",
+            active_button='<a>{nav_button}</a>',
+            day_buttons="", period_buttons="", up_url="#top", down_url="#bottom",
+            kindle_button="", nav_button="REAL_NAV",
+        )
+        self.assertIn('<a>{nav_button}</a>', page)  # not replaced by nav_button's value
 
 
 class PathSafetyTests(unittest.TestCase):
@@ -407,6 +447,122 @@ class PathSafetyTests(unittest.TestCase):
     def test_safe_vault_path_allows_md(self):
         p = self.m._safe_vault_path("log/2026-07-09.md")
         self.assertIsNotNone(p)
+
+    def test_safe_vault_path_custom_root_allows_inside(self):
+        p = self.m._safe_vault_path("2026-07-09.md", root=os.path.join(self.tmp, "log"))
+        self.assertIsNotNone(p)
+        self.assertTrue(p.startswith(os.path.realpath(os.path.join(self.tmp, "log"))))
+
+    def test_safe_vault_path_custom_root_rejects_escape(self):
+        # '..' from a custom root must not escape that root, even though the
+        # resulting path is still inside VAULT overall.
+        p = self.m._safe_vault_path("../secret.md", root=os.path.join(self.tmp, "log"))
+        self.assertIsNone(p)
+
+    def test_safe_vault_path_custom_root_rejects_hidden(self):
+        p = self.m._safe_vault_path(".hidden/x.md", root=os.path.join(self.tmp, "log"))
+        self.assertIsNone(p)
+
+
+class ReviewRepoTraversalTests(unittest.TestCase):
+    """_review_repo_from_param must only resolve a DIRECT child of WORKTREE_DIR — no
+    separators, no '.'/'..' traversal, no absolute paths (Codex: repo=. let `git -C`
+    walk up to a parent repo)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp()
+        os.makedirs(os.path.join(cls.tmp, "log"), exist_ok=True)
+        cls.m = _load_module(cls.tmp)
+
+    def setUp(self):
+        self.wt_dir = tempfile.mkdtemp()
+        self.repo = os.path.join(self.wt_dir, "myrepo")
+        os.makedirs(self.repo)
+        subprocess.run(["git", "-C", self.repo, "init", "-q"], check=True)
+        self.m.WORKTREE_DIR = self.wt_dir
+
+    def test_rejects_path_traversal(self):
+        self.assertIsNone(self.m._review_repo_from_param("../etc"))
+        self.assertIsNone(self.m._review_repo_from_param("..\\etc"))
+
+    def test_rejects_dot_and_dotdot(self):
+        self.assertIsNone(self.m._review_repo_from_param("."))
+        self.assertIsNone(self.m._review_repo_from_param(".."))
+
+    def test_rejects_leading_dot_and_separators(self):
+        self.assertIsNone(self.m._review_repo_from_param(".hidden"))
+        self.assertIsNone(self.m._review_repo_from_param("myrepo/sub"))
+        self.assertIsNone(self.m._review_repo_from_param("/etc/passwd"))
+
+    def test_accepts_direct_child_git_repo(self):
+        self.assertEqual(self.m._review_repo_from_param("myrepo"), os.path.realpath(self.repo))
+
+    def test_rejects_non_git_direct_child(self):
+        not_a_repo = os.path.join(self.wt_dir, "notrepo")
+        os.makedirs(not_a_repo)
+        self.assertIsNone(self.m._review_repo_from_param("notrepo"))
+
+    def test_vault_shortcut_always_resolves(self):
+        self.m.WORKTREE_DIR = ""
+        self.assertEqual(self.m._review_repo_from_param("vault"), self.m.VAULT)
+
+
+class StripObsidianDynamicInvariantTests(unittest.TestCase):
+    """strip_obsidian_dynamic must NEVER change the newline count — write-back line-
+    number math (checkbox toggle, annotate) depends on line numbers staying aligned
+    with the original file."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp()
+        os.makedirs(os.path.join(cls.tmp, "log"), exist_ok=True)
+        cls.m = _load_module(cls.tmp)
+
+    def _assert_preserves_newlines(self, text):
+        result = self.m.strip_obsidian_dynamic(text)
+        self.assertEqual(result.count("\n"), text.count("\n"), f"newline count changed for: {text!r}")
+
+    def test_dataview_block_preserves_newlines(self):
+        self._assert_preserves_newlines("before\n```dataview\nTABLE x\nFROM y\n```\nafter\n")
+
+    def test_dataviewjs_block_preserves_newlines(self):
+        self._assert_preserves_newlines("before\n```dataviewjs\ndv.pages()\n```\nafter\n")
+
+    def test_custom_frames_block_preserves_newlines(self):
+        self._assert_preserves_newlines("before\n```custom-frames\nsrc: x\n```\nafter\n")
+
+    def test_embed_and_blockquote_marker_preserve_newlines(self):
+        embed = "!" + "[[x]]"
+        self._assert_preserves_newlines(f"a\n{embed}\nb\n>\nc\n")
+
+    def test_plain_text_preserves_newlines(self):
+        self._assert_preserves_newlines("just\nplain\ntext\n")
+
+
+class DiffTrustedTagWhitelistTests(unittest.TestCase):
+    """markdown_to_html(is_diff=True) trusts a WHITELIST of internally-generated tags
+    (details/summary/div/etc.) to pass through as raw HTML — anything NOT on that
+    whitelist (e.g. a <script> line smuggled into diff content) must still be escaped."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp()
+        os.makedirs(os.path.join(cls.tmp, "log"), exist_ok=True)
+        cls.m = _load_module(cls.tmp)
+
+    def test_whitelisted_tag_passes_through_raw_in_diff_mode(self):
+        html_out = self.m.markdown_to_html('<details class="rv-file">\n', is_diff=True)
+        self.assertIn('<details class="rv-file">', html_out)
+
+    def test_non_whitelisted_tag_is_escaped_even_in_diff_mode(self):
+        html_out = self.m.markdown_to_html('<script>alert(1)</script>\n', is_diff=True)
+        self.assertNotIn("<script>", html_out)
+        self.assertIn("&lt;script&gt;", html_out)
+
+    def test_non_whitelisted_tag_is_escaped_outside_diff_mode_too(self):
+        html_out = self.m.markdown_to_html('<script>alert(1)</script>\n', is_diff=False)
+        self.assertNotIn("<script>", html_out)
 
 
 if __name__ == "__main__":
